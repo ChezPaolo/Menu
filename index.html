@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Our Menu</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Lora:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800&family=Nunito:wght@400;600;700;800&family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@400;500;600;700;800&family=Quicksand:wght@400;500;600;700&family=Raleway:wght@400;500;600;700;800&family=Work+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -21,14 +21,20 @@
   *{box-sizing:border-box;}
   html{scroll-behavior:smooth;}
   body{
-    margin:0;font-family:'Inter',sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;
+    margin:0;font-family:var(--site-font, 'Inter', sans-serif);color:var(--ink);-webkit-font-smoothing:antialiased;
+    background-color:var(--cream-50);
+  }
+  h1,h2,h3,.display{font-family:var(--site-font, 'Manrope', sans-serif);}
+  button{font-family:inherit;cursor:pointer;}
+  input,select,textarea{font-family:inherit;}
+
+  #siteBg{
+    position:fixed;inset:0;z-index:-1;
     background-color:var(--cream-50);
     background-image:var(--site-bg, none);
     background-size:cover;background-position:center top;background-attachment:fixed;background-repeat:no-repeat;
+    filter:brightness(var(--site-bg-brightness, 1));
   }
-  h1,h2,h3,.display{font-family:'Manrope',sans-serif;}
-  button{font-family:inherit;cursor:pointer;}
-  input,select,textarea{font-family:inherit;}
 
   .navbar{
     position:sticky;top:0;z-index:50;background:var(--wine-900);
@@ -43,25 +49,26 @@
   .cart-badge{position:absolute;top:-4px;right:-4px;background:var(--gold);color:#2A1F05;font-size:10.5px;font-weight:800;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;}
 
   .hero{
-    background:linear-gradient(180deg, rgba(59,13,20,.80) 0%, rgba(92,22,32,.88) 100%);
-    color:#fff;text-align:center;padding:56px 20px 46px;
+    text-align:center;padding:52px 20px 46px;
   }
-  .hero h1{font-size:2.1rem;margin:0 0 6px;letter-spacing:.3px;}
-  .hero p{color:rgba(255,255,255,.82);font-size:.95rem;margin:0 0 26px;}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 26px;border-radius:10px;border:none;font-weight:700;font-size:15px;transition:transform .08s, background .15s;}
+  #heroLogo{display:block;margin:0 auto 22px;object-fit:contain;border-radius:14px;box-shadow:0 10px 26px rgba(0,0,0,.18);}
+  #heroNameFallback{display:none;font-family:var(--site-font,'Manrope',sans-serif);font-weight:800;font-size:1.8rem;color:var(--wine-900);background:rgba(255,255,255,.88);padding:14px 26px;border-radius:14px;margin:0 auto 22px;max-width:90%;box-shadow:var(--shadow);}
+  .menu-launch-stack{display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:26px;}
+  .menu-launch-stack .btn{width:240px;max-width:80vw;}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 26px;border-radius:10px;border:none;font-weight:700;font-size:15px;transition:transform .08s, background .15s;box-shadow:var(--shadow);}
   .btn:active{transform:scale(0.98);}
   .btn-gold{background:var(--gold);color:#2A1F05;}
   .btn-gold:hover{background:var(--gold-dark);}
-  .btn-ghost{background:transparent;border:1.5px solid rgba(255,255,255,.4);color:#fff;}
-  .btn-ghost:hover{background:rgba(255,255,255,.1);}
+  .btn-ghost{background:rgba(255,255,255,.92);border:1.5px solid var(--line);color:var(--wine-900);}
+  .btn-ghost:hover{background:#fff;}
   .btn-sm{padding:8px 14px;font-size:13px;border-radius:8px;}
   .btn-block{width:100%;}
   .btn:disabled{opacity:.5;cursor:not-allowed;}
 
   .hero-social-row{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;margin-top:8px;}
-  .hero-social-item{display:flex;flex-direction:column;align-items:center;gap:6px;color:#fff;text-decoration:none;font-size:11.5px;font-weight:700;opacity:.92;}
+  .hero-social-item{display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--wine-900);text-decoration:none;font-size:11.5px;font-weight:700;opacity:.92;}
   .hero-social-item:hover{opacity:1;}
-  .hero-social-icon{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;border:1.5px solid rgba(255,255,255,.28);}
+  .hero-social-icon{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;border:1.5px solid var(--line);box-shadow:var(--shadow);}
 
   .whatsapp-float{
     position:fixed;bottom:22px;right:22px;z-index:60;
@@ -168,9 +175,14 @@
   .switch .slider:before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s;}
   .switch input:checked + .slider{background:var(--wine-500);}
   .switch input:checked + .slider:before{transform:translateX(20px);}
+
+  .range-row{display:flex;align-items:center;gap:12px;}
+  .range-row input[type=range]{flex:1;accent-color:var(--wine-500);}
+  .range-row .range-val{font-weight:700;color:var(--wine-900);font-size:13px;min-width:44px;text-align:right;}
 </style>
 </head>
 <body>
+<div id="siteBg"></div>
 
 <!-- ============ PUBLIC PAGE ============ -->
 <nav class="navbar">
@@ -186,12 +198,10 @@
 </nav>
 
 <div class="hero" id="top">
-  <h1 id="heroName">Our Restaurant</h1>
-  <p id="heroTagline">Fresh food, made with love</p>
-  <div style="margin-bottom:14px;">
+  <img id="heroLogo" src="" alt="" style="display:none;">
+  <div id="heroNameFallback"></div>
+  <div class="menu-launch-stack">
     <button class="btn btn-gold" onclick="openMenu('breakfast')">Breakfast Menu</button>
-  </div>
-  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:28px;">
     <button class="btn btn-ghost" onclick="openMenu('main')">Main Menu</button>
     <button class="btn btn-ghost" onclick="openMenu('beverage')">Beverage Menu</button>
   </div>
@@ -213,7 +223,6 @@
   <div class="footer-grid">
     <div>
       <div class="fname" id="footerName">Our Restaurant</div>
-      <p id="footerBlurb">Good food, good company.</p>
       <div class="social-row" id="socialRow"></div>
     </div>
     <div>
@@ -248,7 +257,19 @@
   <div class="cart-drawer-body" id="cartItemsList"></div>
   <div class="cart-drawer-foot">
     <div class="cart-total-row"><span>Total</span><span id="cartTotal">0 EGP</span></div>
-    <button class="btn btn-gold btn-block" id="sendOrderBtn">Send order on WhatsApp</button>
+    <div id="orderTypeButtons" style="display:flex;flex-direction:column;gap:8px;">
+      <button class="btn btn-ghost btn-block" onclick="selectOrderType('table')">Order for your table</button>
+      <button class="btn btn-ghost btn-block" onclick="selectOrderType('togo')">Order to go</button>
+      <button class="btn btn-ghost btn-block" onclick="selectOrderType('delivery')">Order Delivery</button>
+    </div>
+    <div id="orderDetailsForm" style="display:none;">
+      <div id="orderFormFields"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn-ghost-dark" onclick="cancelOrderType()">← Back</button>
+        <button class="btn btn-gold btn-block" id="confirmSendOrderBtn">Send order</button>
+      </div>
+      <div class="msg err" id="orderFormMsg"></div>
+    </div>
   </div>
 </div>
 
@@ -277,6 +298,7 @@
   </div>
   <div class="admin-tabs" id="adminTabsNav">
     <button data-tab="menu" class="active">Menu</button>
+    <button data-tab="orders">Orders</button>
     <button data-tab="settings">Settings</button>
   </div>
   <div class="admin-main">
@@ -289,12 +311,19 @@
       <div id="adminMenuContainer"></div>
     </div>
 
+    <!-- ORDERS -->
+    <div id="admtab-orders" class="admtabpanel" style="display:none;">
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:-4px 0 4px;">
+        Orders guests send also land here, in addition to arriving on WhatsApp. Newest first.
+      </p>
+      <div id="adminOrdersContainer"></div>
+    </div>
+
     <!-- SETTINGS -->
     <div id="admtab-settings" class="admtabpanel" style="display:none;">
       <div class="panel">
         <div class="panel-head"><h2>Restaurant info</h2></div>
         <div class="field"><label>Name</label><input id="settingsName" placeholder="Our Restaurant"></div>
-        <div class="field"><label>Tagline</label><input id="settingsTagline" placeholder="Fresh food, made with love"></div>
         <div class="field"><label>Contact email</label><input id="settingsEmail" type="email" placeholder="info@example.com"></div>
         <div class="field"><label>Phone (optional)</label><input id="settingsPhone" placeholder="+20 1xx xxx xxxx"></div>
         <div class="field"><label>Address (optional)</label><input id="settingsAddress" placeholder="Street, city"></div>
@@ -312,6 +341,42 @@
         <div class="field"><label>Background filename or full URL</label><input id="settingsBgUrl" placeholder="background.jpg"></div>
         <button class="btn-ghost-dark" id="saveSettingsBtn2">Save</button>
         <div class="msg" id="settingsMsg2"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Appearance</h2></div>
+        <div class="field">
+          <label>Site font</label>
+          <select id="settingsFont">
+            <option value="Inter">Inter (clean, modern)</option>
+            <option value="Manrope">Manrope (bold, friendly)</option>
+            <option value="Poppins">Poppins (rounded, warm)</option>
+            <option value="Montserrat">Montserrat (geometric, sharp)</option>
+            <option value="Nunito">Nunito (soft, casual)</option>
+            <option value="Work Sans">Work Sans (simple, neutral)</option>
+            <option value="Quicksand">Quicksand (light, airy)</option>
+            <option value="Raleway">Raleway (elegant, thin)</option>
+            <option value="Lora">Lora (classic serif)</option>
+            <option value="Playfair Display">Playfair Display (upscale serif)</option>
+            <option value="Cormorant Garamond">Cormorant Garamond (fine dining serif)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Top-left logo size (px)</label>
+          <input id="settingsNavLogoSize" type="number" min="20" max="120" placeholder="34">
+        </div>
+        <div class="field">
+          <label>Center logo size (px)</label>
+          <input id="settingsHeroLogoSize" type="number" min="60" max="400" placeholder="140">
+        </div>
+        <div class="field">
+          <label>Background brightness</label>
+          <div class="range-row">
+            <input id="settingsBgBrightness" type="range" min="40" max="160" step="5" value="100">
+            <span class="range-val" id="settingsBgBrightnessVal">100%</span>
+          </div>
+        </div>
+        <button class="btn-ghost-dark" id="saveAppearanceBtn">Save</button>
+        <div class="msg" id="settingsMsgAppearance"></div>
       </div>
       <div class="panel">
         <div class="panel-head"><h2>Social, WhatsApp &amp; Location</h2></div>
@@ -392,6 +457,8 @@ function resolvePhotoUrl(value){
 }
 
 let currentAdminUser = null;
+let orders = [];
+let ordersUnsub = null;
 let settings = {};
 let categories = [];
 let items = [];
@@ -421,22 +488,41 @@ db.collection('rSettings').doc('main').onSnapshot(doc => {
 
 function renderSettingsPublic(){
   const name = settings.name || 'Our Restaurant';
-  const tagline = settings.tagline || 'Fresh food, made with love';
   document.title = name + ' — Menu';
   document.getElementById('navName').textContent = name;
-  document.getElementById('heroName').textContent = name;
-  document.getElementById('heroTagline').textContent = tagline;
   document.getElementById('footerName').textContent = name;
   document.getElementById('footerName2').textContent = name;
-  document.getElementById('footerBlurb').textContent = tagline;
+
+  const logoResolved = resolvePhotoUrl(settings.logoUrl);
+  const navLogoSize = settings.navLogoSize || 34;
+  const heroLogoSize = settings.heroLogoSize || 140;
 
   const navLogo = document.getElementById('navLogo');
-  const logoResolved = resolvePhotoUrl(settings.logoUrl);
-  if(logoResolved){ navLogo.src = logoResolved; navLogo.style.display = 'inline-block'; }
-  else { navLogo.style.display = 'none'; }
+  if(logoResolved){
+    navLogo.src = logoResolved;
+    navLogo.style.display = 'inline-block';
+    navLogo.style.width = navLogoSize + 'px';
+    navLogo.style.height = navLogoSize + 'px';
+  } else { navLogo.style.display = 'none'; }
+
+  const heroLogo = document.getElementById('heroLogo');
+  const heroNameFallback = document.getElementById('heroNameFallback');
+  if(logoResolved){
+    heroLogo.src = logoResolved;
+    heroLogo.style.display = 'block';
+    heroLogo.style.width = heroLogoSize + 'px';
+    heroLogo.style.height = 'auto';
+    heroNameFallback.style.display = 'none';
+  } else {
+    heroLogo.style.display = 'none';
+    heroNameFallback.textContent = name;
+    heroNameFallback.style.display = 'inline-block';
+  }
 
   const bgResolved = resolvePhotoUrl(settings.bgUrl);
-  document.body.style.setProperty('--site-bg', bgResolved ? `url('${bgResolved}')` : 'none');
+  document.documentElement.style.setProperty('--site-bg', bgResolved ? `url('${bgResolved}')` : 'none');
+  document.documentElement.style.setProperty('--site-bg-brightness', ((settings.bgBrightness ?? 100) / 100));
+  document.documentElement.style.setProperty('--site-font', `'${settings.fontFamily || 'Inter'}', sans-serif`);
 
   const emailLink = document.getElementById('footerEmailLink');
   if(settings.email){ emailLink.textContent = settings.email; emailLink.href = 'mailto:' + settings.email; emailLink.style.display = 'inline'; }
@@ -484,7 +570,6 @@ function renderSettingsPublic(){
 
 function fillAdminSettingsForm(){
   document.getElementById('settingsName').value = settings.name || '';
-  document.getElementById('settingsTagline').value = settings.tagline || '';
   document.getElementById('settingsEmail').value = settings.email || '';
   document.getElementById('settingsPhone').value = settings.phone || '';
   document.getElementById('settingsAddress').value = settings.address || '';
@@ -495,21 +580,30 @@ function fillAdminSettingsForm(){
   document.getElementById('settingsLocationUrl').value = settings.locationUrl || '';
   document.getElementById('settingsWhatsapp').value = settings.whatsappNumber || '';
   document.getElementById('orderingToggle').checked = !!settings.orderingEnabled;
+  document.getElementById('settingsFont').value = settings.fontFamily || 'Inter';
+  document.getElementById('settingsNavLogoSize').value = settings.navLogoSize || 34;
+  document.getElementById('settingsHeroLogoSize').value = settings.heroLogoSize || 140;
+  const bgBrightness = settings.bgBrightness ?? 100;
+  document.getElementById('settingsBgBrightness').value = bgBrightness;
+  document.getElementById('settingsBgBrightnessVal').textContent = bgBrightness + '%';
   document.getElementById('callmebotEnabled').checked = !!callmebotSettings.enabled;
   document.getElementById('callmebotPhone').value = callmebotSettings.phone || '';
   document.getElementById('callmebotApikey').value = callmebotSettings.apikey || '';
 }
 
+document.getElementById('settingsBgBrightness').oninput = (e) => {
+  document.getElementById('settingsBgBrightnessVal').textContent = e.target.value + '%';
+};
+
 document.getElementById('saveSettingsBtn').onclick = async () => {
   const name = document.getElementById('settingsName').value.trim();
-  const tagline = document.getElementById('settingsTagline').value.trim();
   const email = document.getElementById('settingsEmail').value.trim();
   const phone = document.getElementById('settingsPhone').value.trim();
   const address = document.getElementById('settingsAddress').value.trim();
   const msg = document.getElementById('settingsMsg');
   if(!name){ msg.textContent = 'Enter a restaurant name.'; msg.className = 'msg err'; return; }
   try{
-    await db.collection('rSettings').doc('main').set({ name, tagline, email, phone, address }, { merge: true });
+    await db.collection('rSettings').doc('main').set({ name, email, phone, address }, { merge: true });
     msg.textContent = 'Saved.'; msg.className = 'msg ok';
   }catch(err){ msg.textContent = err.message; msg.className = 'msg err'; }
 };
@@ -520,6 +614,18 @@ document.getElementById('saveSettingsBtn2').onclick = async () => {
   const msg = document.getElementById('settingsMsg2');
   try{
     await db.collection('rSettings').doc('main').set({ logoUrl, bgUrl }, { merge: true });
+    msg.textContent = 'Saved.'; msg.className = 'msg ok';
+  }catch(err){ msg.textContent = err.message; msg.className = 'msg err'; }
+};
+
+document.getElementById('saveAppearanceBtn').onclick = async () => {
+  const fontFamily = document.getElementById('settingsFont').value;
+  const navLogoSize = Number(document.getElementById('settingsNavLogoSize').value) || 34;
+  const heroLogoSize = Number(document.getElementById('settingsHeroLogoSize').value) || 140;
+  const bgBrightness = Number(document.getElementById('settingsBgBrightness').value) || 100;
+  const msg = document.getElementById('settingsMsgAppearance');
+  try{
+    await db.collection('rSettings').doc('main').set({ fontFamily, navLogoSize, heroLogoSize, bgBrightness }, { merge: true });
     msg.textContent = 'Saved.'; msg.className = 'msg ok';
   }catch(err){ msg.textContent = err.message; msg.className = 'msg err'; }
 };
@@ -692,23 +798,136 @@ function renderCart(){
   document.getElementById('cartTotal').textContent = cartTotal() + ' EGP';
 }
 function openCart(){ document.getElementById('cartDrawer').classList.add('show'); document.getElementById('cartBackdrop').classList.add('show'); }
-function closeCart(){ document.getElementById('cartDrawer').classList.remove('show'); document.getElementById('cartBackdrop').classList.remove('show'); }
+function closeCart(){
+  document.getElementById('cartDrawer').classList.remove('show');
+  document.getElementById('cartBackdrop').classList.remove('show');
+  cancelOrderType();
+}
 renderCart();
 
-document.getElementById('sendOrderBtn').onclick = () => {
+let selectedOrderType = null;
+const ORDER_TYPE_LABELS = { table: 'Order for your table', togo: 'Order to go', delivery: 'Order Delivery' };
+
+function selectOrderType(type){
   if(cart.length === 0) return;
-  const lines = cart.map(c => `• ${c.name} x${c.qty} — ${c.price*c.qty} EGP`).join('\n');
-  const text = `New order:\n${lines}\nTotal: ${cartTotal()} EGP`;
+  selectedOrderType = type;
+  document.getElementById('orderTypeButtons').style.display = 'none';
+  document.getElementById('orderDetailsForm').style.display = 'block';
+  document.getElementById('orderFormMsg').textContent = '';
+  const fields = document.getElementById('orderFormFields');
+  if(type === 'table'){
+    fields.innerHTML = `<div class="field" style="margin-bottom:0;"><label>Table number</label><input id="orderTableNumber" placeholder="e.g. 5"></div>`;
+  } else if(type === 'togo'){
+    fields.innerHTML = `
+      <div class="field" style="margin-bottom:10px;"><label>Name</label><input id="orderName" placeholder="Your name"></div>
+      <div class="field" style="margin-bottom:0;"><label>Phone number</label><input id="orderPhone" placeholder="e.g. 01xxxxxxxxx"></div>`;
+  } else if(type === 'delivery'){
+    fields.innerHTML = `
+      <div class="field" style="margin-bottom:10px;"><label>Name</label><input id="orderName" placeholder="Your name"></div>
+      <div class="field" style="margin-bottom:10px;"><label>Phone number</label><input id="orderPhone" placeholder="e.g. 01xxxxxxxxx"></div>
+      <div class="field" style="margin-bottom:0;"><label>Delivery address</label><input id="orderAddress" placeholder="Street, building, area"></div>`;
+  }
+}
+function cancelOrderType(){
+  selectedOrderType = null;
+  const form = document.getElementById('orderDetailsForm');
+  const btns = document.getElementById('orderTypeButtons');
+  if(form) form.style.display = 'none';
+  if(btns) btns.style.display = 'flex';
+  const msg = document.getElementById('orderFormMsg');
+  if(msg) msg.textContent = '';
+}
+
+document.getElementById('confirmSendOrderBtn').onclick = async () => {
+  if(cart.length === 0 || !selectedOrderType) return;
+  const msg = document.getElementById('orderFormMsg');
+  msg.textContent = '';
+  const detailsLines = [];
+  const details = {};
+
+  if(selectedOrderType === 'table'){
+    const table = document.getElementById('orderTableNumber').value.trim();
+    if(!table){ msg.textContent = 'Enter a table number.'; return; }
+    detailsLines.push(`Table number: ${table}`);
+    details['Table number'] = table;
+  } else if(selectedOrderType === 'togo'){
+    const name = document.getElementById('orderName').value.trim();
+    const phone = document.getElementById('orderPhone').value.trim();
+    if(!name || !phone){ msg.textContent = 'Enter your name and phone number.'; return; }
+    detailsLines.push(`Name: ${name}`, `Phone: ${phone}`);
+    details['Name'] = name; details['Phone'] = phone;
+  } else if(selectedOrderType === 'delivery'){
+    const name = document.getElementById('orderName').value.trim();
+    const phone = document.getElementById('orderPhone').value.trim();
+    const address = document.getElementById('orderAddress').value.trim();
+    if(!name || !phone || !address){ msg.textContent = 'Enter your name, phone number, and delivery address.'; return; }
+    detailsLines.push(`Name: ${name}`, `Phone: ${phone}`, `Address: ${address}`);
+    details['Name'] = name; details['Phone'] = phone; details['Address'] = address;
+  }
+
   const number = (settings.whatsappNumber || '').replace(/[^0-9]/g,'');
-  if(number){ window.open(`https://wa.me/${number}?text=${encodeURIComponent(text)}`, '_blank'); }
-  else { alert('The restaurant has not set up a WhatsApp number yet.'); return; }
+  if(!number){ msg.textContent = 'The restaurant has not set up a WhatsApp number yet.'; return; }
+
+  const lines = cart.map(c => `• ${c.name} x${c.qty} — ${c.price*c.qty} EGP`).join('\n');
+  const text = `${ORDER_TYPE_LABELS[selectedOrderType]}\n${detailsLines.join('\n')}\n\nOrder:\n${lines}\nTotal: ${cartTotal()} EGP`;
+
+  window.open(`https://wa.me/${number}?text=${encodeURIComponent(text)}`, '_blank');
   sendWhatsappAlert(`🛎️ ${text}`);
-  cart = []; saveCart(); closeCart();
+
+  try{
+    await db.collection('orders').add({
+      type: selectedOrderType,
+      details,
+      items: cart.map(c => ({ name: c.name, price: c.price, qty: c.qty })),
+      total: cartTotal(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }catch(err){ console.warn('Could not save order record', err); }
+
+  cart = []; saveCart();
+  closeCart();
 };
 
 /* =========================================================================
-   ADMIN — auth
+   ADMIN — orders
    ========================================================================= */
+function startOrdersListener(){
+  if(ordersUnsub) return;
+  ordersUnsub = db.collection('orders').orderBy('createdAt', 'desc').limit(200).onSnapshot(snap => {
+    orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if(currentAdminUser) renderAdminOrdersTab();
+  }, err => console.error(err));
+}
+function stopOrdersListener(){
+  if(ordersUnsub){ ordersUnsub(); ordersUnsub = null; }
+  orders = [];
+}
+function renderAdminOrdersTab(){
+  const container = document.getElementById('adminOrdersContainer');
+  if(!container) return;
+  if(orders.length === 0){ container.innerHTML = '<div class="empty-state">No orders yet.</div>'; return; }
+  container.innerHTML = orders.map(o => renderAdminOrderCard(o)).join('');
+}
+function renderAdminOrderCard(o){
+  const typeLabel = ORDER_TYPE_LABELS[o.type] || 'Order';
+  const details = o.details || {};
+  const detailLines = Object.keys(details).map(k => `<div class="t2">${escapeHtml(k)}: ${escapeHtml(details[k])}</div>`).join('');
+  const itemLines = (o.items || []).map(i => `<div class="t2">${escapeHtml(i.name)} × ${i.qty} — ${i.price * i.qty} EGP</div>`).join('');
+  let timeStr = '';
+  if(o.createdAt && typeof o.createdAt.toDate === 'function'){ timeStr = o.createdAt.toDate().toLocaleString(); }
+  return `
+  <div class="panel" style="margin-bottom:14px;">
+    <div class="panel-head"><h2>${escapeHtml(typeLabel)}</h2><span style="font-size:12px;color:var(--ink-soft);">${escapeHtml(timeStr)}</span></div>
+    <div style="margin-bottom:8px;">${detailLines}</div>
+    <div style="padding-top:8px;border-top:1px dashed var(--line);">${itemLines}</div>
+    <div style="margin-top:10px;font-weight:800;color:var(--wine-900);font-size:14.5px;">Total: ${o.total || 0} EGP</div>
+    <button class="btn-danger" style="margin-top:12px;" onclick="deleteOrder('${o.id}')">Delete</button>
+  </div>`;
+}
+function deleteOrder(id){
+  if(!confirm('Delete this order record? This only removes it from the admin list, not from WhatsApp.')) return;
+  db.collection('orders').doc(id).delete();
+}
 document.getElementById('adminEntryLink').onclick = (e) => {
   e.preventDefault();
   document.getElementById('adminLoginMsg').textContent = '';
@@ -741,6 +960,7 @@ document.getElementById('adminLoginBtn').onclick = async () => {
     document.getElementById('adminOverlay').classList.remove('show');
     document.getElementById('adminPanel').classList.add('show');
     document.getElementById('adminWhoName').textContent = currentAdminUser.name;
+    startOrdersListener();
     switchAdminTab('menu');
   }catch(err){
     const map = {
@@ -758,6 +978,7 @@ document.getElementById('adminLoginBtn').onclick = async () => {
 document.getElementById('adminLogoutBtn').onclick = () => {
   auth.signOut();
   currentAdminUser = null;
+  stopOrdersListener();
   document.getElementById('adminPanel').classList.remove('show');
 };
 document.getElementById('adminCloseBtn').onclick = () => {
@@ -772,6 +993,7 @@ function switchAdminTab(tab){
   document.getElementById('admtab-' + tab).style.display = 'block';
   document.querySelectorAll('#adminTabsNav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   if(tab === 'menu') renderAdminMenuTab();
+  if(tab === 'orders') renderAdminOrdersTab();
   if(tab === 'settings') fillAdminSettingsForm();
 }
 
