@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Our Menu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --wine-900:#3B0D14; --wine-700:#5C1620; --wine-500:#8C2233;
+    --cream-50:#FBF6EF; --cream-100:#F3E9DA; --line:#E4D6C0;
+    --ink:#241713; --ink-soft:#6B5A50;
+    --gold:#C9A24B; --gold-dark:#A9822F; --ok:#3E8A5B; --danger:#B94A34;
+    --white:#FFFFFF;
+    --shadow: 0 1px 2px rgba(59,13,20,0.08), 0 4px 14px rgba(59,13,20,0.08);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;font-family:'Inter',sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;
+    background-color:var(--cream-50);
+    background-image:var(--site-bg, none);
+    background-size:cover;background-position:center top;background-attachment:fixed;background-repeat:no-repeat;
+  }
+  h1,h2,h3,.display{font-family:'Manrope',sans-serif;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select,textarea{font-family:inherit;}
+
+  .navbar{
+    position:sticky;top:0;z-index:50;background:var(--wine-900);
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 22px;box-shadow:0 2px 10px rgba(0,0,0,.15);
+  }
+  .navbar .navbrand{display:flex;align-items:center;gap:10px;color:#fff;font-family:'Manrope',sans-serif;font-weight:800;font-size:17px;text-decoration:none;}
+  .navbar .navbrand img{width:34px;height:34px;border-radius:8px;object-fit:cover;}
+  .navbar .navlinks{display:flex;align-items:center;gap:14px;}
+  .cart-nav-btn{position:relative;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.25);color:#fff;width:42px;height:42px;border-radius:50%;font-size:18px;display:flex;align-items:center;justify-content:center;}
+  .cart-nav-btn:hover{background:rgba(255,255,255,.18);}
+  .cart-badge{position:absolute;top:-4px;right:-4px;background:var(--gold);color:#2A1F05;font-size:10.5px;font-weight:800;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;}
+
+  .hero{
+    background:linear-gradient(180deg, rgba(59,13,20,.80) 0%, rgba(92,22,32,.88) 100%);
+    color:#fff;text-align:center;padding:56px 20px 46px;
+  }
+  .hero h1{font-size:2.1rem;margin:0 0 6px;letter-spacing:.3px;}
+  .hero p{color:rgba(255,255,255,.82);font-size:.95rem;margin:0 0 26px;}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 26px;border-radius:10px;border:none;font-weight:700;font-size:15px;transition:transform .08s, background .15s;}
+  .btn:active{transform:scale(0.98);}
+  .btn-gold{background:var(--gold);color:#2A1F05;}
+  .btn-gold:hover{background:var(--gold-dark);}
+  .btn-ghost{background:transparent;border:1.5px solid rgba(255,255,255,.4);color:#fff;}
+  .btn-ghost:hover{background:rgba(255,255,255,.1);}
+  .btn-sm{padding:8px 14px;font-size:13px;border-radius:8px;}
+  .btn-block{width:100%;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+
+  .hero-social-row{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;margin-top:8px;}
+  .hero-social-item{display:flex;flex-direction:column;align-items:center;gap:6px;color:#fff;text-decoration:none;font-size:11.5px;font-weight:700;opacity:.92;}
+  .hero-social-item:hover{opacity:1;}
+  .hero-social-icon{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;border:1.5px solid rgba(255,255,255,.28);}
+
+  .whatsapp-float{
+    position:fixed;bottom:22px;right:22px;z-index:60;
+    width:56px;height:56px;border-radius:50%;background:#25D366;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.3);
+    text-decoration:none;color:#fff;font-size:28px;
+  }
+  .whatsapp-float:hover{transform:scale(1.06);}
+
+  main{max-width:960px;margin:0 auto;padding:0 20px 60px;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:26px;margin-top:22px;}
+  .section-title{font-size:1.3rem;color:var(--wine-900);margin:0 0 4px;}
+  .section-sub{color:var(--ink-soft);font-size:.88rem;margin:0 0 20px;}
+  .empty-state{text-align:center;padding:26px 10px;color:var(--ink-soft);font-size:13.5px;border:1.5px dashed var(--line);border-radius:10px;}
+
+  /* menu category tiles */
+  .cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;}
+  .cat-card{aspect-ratio:1/1;border-radius:14px;overflow:hidden;position:relative;cursor:pointer;box-shadow:var(--shadow);background-color:var(--cream-100);background-size:cover;background-position:center;transition:transform .12s;}
+  .cat-card:hover{transform:translateY(-2px);}
+  .cat-card-label{position:absolute;left:0;right:0;bottom:0;padding:10px 12px;background:linear-gradient(0deg, rgba(59,13,20,.85), rgba(59,13,20,0));color:#fff;font-weight:700;font-size:14px;}
+
+  /* dishes */
+  .dish-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:16px;}
+  .dish-card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;}
+  .dish-photo{aspect-ratio:1/1;width:100%;object-fit:cover;background:var(--cream-100);display:block;}
+  .dish-photo-empty{aspect-ratio:1/1;width:100%;display:flex;align-items:center;justify-content:center;color:var(--ink-soft);font-size:12px;background:var(--cream-100);}
+  .dish-body{padding:11px 13px 13px;}
+  .mname{font-weight:700;font-size:14.5px;color:var(--wine-900);}
+  .mprice{font-weight:700;color:var(--gold-dark);margin-top:4px;font-size:13.5px;}
+
+  /* cart drawer */
+  .cart-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:94;}
+  .cart-backdrop.show{display:block;}
+  .cart-drawer{position:fixed;top:0;right:-380px;width:340px;max-width:90vw;height:100%;background:#fff;z-index:95;box-shadow:-8px 0 24px rgba(0,0,0,.2);transition:right .25s;display:flex;flex-direction:column;}
+  .cart-drawer.show{right:0;}
+  .cart-drawer-head{padding:18px 18px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;}
+  .cart-drawer-head h3{margin:0;color:var(--wine-900);}
+  .cart-drawer-body{flex:1;overflow-y:auto;padding:14px 18px;}
+  .cart-drawer-foot{padding:16px 18px;border-top:1px solid var(--line);}
+  .cart-total-row{display:flex;justify-content:space-between;font-weight:800;color:var(--wine-900);margin-bottom:12px;font-size:16px;}
+  .close-x{background:transparent;border:none;font-size:20px;color:var(--ink-soft);}
+
+  .row-item{display:flex;align-items:center;gap:12px;padding:11px 10px;border-radius:8px;border:1px solid var(--line);margin-bottom:8px;background:var(--cream-50);flex-wrap:wrap;}
+  .row-item .rmain{flex:1;min-width:120px;}
+  .row-item .rmain .t1{font-weight:700;font-size:14px;}
+  .row-item .rmain .t2{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+  .btn-danger{background:transparent;color:var(--danger);border:1.5px solid #EAC3BA;padding:6px 10px;border-radius:6px;font-size:12.5px;font-weight:700;}
+  .btn-danger:hover{background:#FBEEEB;}
+  .btn-ghost-dark{background:transparent;color:var(--wine-700);border:1.5px solid var(--line);padding:6px 10px;border-radius:6px;font-size:12.5px;font-weight:700;}
+  .btn-ghost-dark:hover{border-color:var(--wine-500);}
+
+  .site-footer{background:var(--wine-900);color:rgba(255,255,255,.8);padding:44px 20px 24px;margin-top:30px;}
+  .footer-grid{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:32px;}
+  @media(max-width:700px){ .footer-grid{grid-template-columns:1fr;gap:26px;text-align:center;} }
+  .footer-grid h4{color:#fff;font-family:'Manrope',sans-serif;font-size:14px;margin:0 0 14px;letter-spacing:.03em;text-transform:uppercase;}
+  .footer-grid .fname{color:#fff;font-family:'Manrope',sans-serif;font-weight:800;font-size:18px;margin-bottom:8px;}
+  .footer-grid p, .footer-grid div{font-size:13px;line-height:1.7;}
+  .footer-grid a{color:rgba(255,255,255,.8);text-decoration:none;}
+  .footer-grid a:hover{color:#fff;}
+  .footer-links{list-style:none;padding:0;margin:0;}
+  .footer-links li{margin-bottom:8px;}
+  .social-row{display:flex;gap:10px;margin-top:14px;}
+  @media(max-width:700px){ .social-row{justify-content:center;} }
+  .social-row a{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;text-decoration:none;color:#fff;}
+  .social-row a:hover{background:var(--gold);color:#2A1F05;}
+  .footer-bottom{max-width:1000px;margin:30px auto 0;padding-top:18px;border-top:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:12px;color:rgba(255,255,255,.55);}
+  .footer-bottom a{color:rgba(255,255,255,.55);text-decoration:none;font-weight:600;}
+  .footer-bottom a:hover{color:#fff;}
+
+  .msg{font-size:13px;margin-top:8px;min-height:16px;}
+  .msg.err{color:var(--danger);}
+  .msg.ok{color:var(--ok);}
+
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12.5px;font-weight:700;color:var(--wine-900);margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em;}
+  .field input, .field select, .field textarea{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;font-size:14.5px;background:var(--cream-50);color:var(--ink);}
+  .field input:focus, .field select:focus, .field textarea:focus{outline:none;border-color:var(--wine-500);background:#fff;}
+
+  /* ---------- Admin ---------- */
+  #adminOverlay{display:none;position:fixed;inset:0;background:rgba(59,13,20,.55);z-index:100;align-items:center;justify-content:center;padding:20px;}
+  #adminOverlay.show{display:flex;}
+  .admin-login-card{background:#fff;border-radius:16px;padding:32px;max-width:360px;width:100%;}
+  .admin-login-card h3{margin:0 0 4px;color:var(--wine-900);}
+  .admin-login-card p{margin:0 0 20px;color:var(--ink-soft);font-size:13px;}
+
+  #adminPanel{display:none;position:fixed;inset:0;background:var(--cream-50);z-index:96;overflow-y:auto;}
+  #adminPanel.show{display:block;}
+  .admin-topbar{background:var(--wine-900);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .admin-topbar .brand{font-family:'Manrope',sans-serif;font-weight:800;font-size:16px;}
+  .admin-tabs{display:flex;gap:2px;background:var(--wine-700);padding:0 16px;overflow-x:auto;}
+  .admin-tabs button{background:transparent;border:none;color:rgba(255,255,255,.75);padding:12px 16px;font-size:13.5px;font-weight:600;border-bottom:3px solid transparent;white-space:nowrap;}
+  .admin-tabs button.active{color:#fff;border-bottom-color:var(--gold);}
+  .admin-main{max-width:900px;margin:0 auto;padding:22px 18px 60px;}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:var(--shadow);}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;border-left:4px solid var(--wine-500);padding-left:10px;}
+  .panel-head h2{font-size:15.5px;margin:0;color:var(--wine-900);}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--line);}
+  .toggle-row:last-child{border-bottom:none;}
+  .toggle-row .tt{font-weight:700;font-size:14px;color:var(--wine-900);}
+  .toggle-row .ts{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+  .switch{position:relative;width:46px;height:26px;flex-shrink:0;}
+  .switch input{opacity:0;width:0;height:0;}
+  .switch .slider{position:absolute;inset:0;background:var(--line);border-radius:26px;transition:.15s;cursor:pointer;}
+  .switch .slider:before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s;}
+  .switch input:checked + .slider{background:var(--wine-500);}
+  .switch input:checked + .slider:before{transform:translateX(20px);}
+</style>
+</head>
+<body>
+
+<!-- ============ PUBLIC PAGE ============ -->
+<nav class="navbar">
+  <a href="#top" class="navbrand">
+    <img id="navLogo" src="" alt="" style="display:none;">
+    <span id="navName">Our Restaurant</span>
+  </a>
+  <div class="navlinks">
+    <button id="cartNavBtn" class="cart-nav-btn" style="display:none;" onclick="openCart()" title="Your order">
+      🛒<span id="cartBadge" class="cart-badge" style="display:none;">0</span>
+    </button>
+  </div>
+</nav>
+
+<div class="hero" id="top">
+  <h1 id="heroName">Our Restaurant</h1>
+  <p id="heroTagline">Fresh food, made with love</p>
+  <div style="margin-bottom:14px;">
+    <button class="btn btn-gold" onclick="openMenu('breakfast')">Breakfast Menu</button>
+  </div>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:28px;">
+    <button class="btn btn-ghost" onclick="openMenu('main')">Main Menu</button>
+    <button class="btn btn-ghost" onclick="openMenu('beverage')">Beverage Menu</button>
+  </div>
+  <div class="hero-social-row" id="heroSocialRow"></div>
+</div>
+
+<main>
+  <section id="menuBrowser" style="display:none;">
+    <div class="card">
+      <div id="menuBrowserHead"></div>
+      <div id="menuBrowserBody"></div>
+    </div>
+  </section>
+</main>
+
+<a id="whatsappFloat" class="whatsapp-float" href="#" target="_blank" style="display:none;" title="Chat on WhatsApp">💬</a>
+
+<footer class="site-footer">
+  <div class="footer-grid">
+    <div>
+      <div class="fname" id="footerName">Our Restaurant</div>
+      <p id="footerBlurb">Good food, good company.</p>
+      <div class="social-row" id="socialRow"></div>
+    </div>
+    <div>
+      <h4>Quick Links</h4>
+      <ul class="footer-links">
+        <li><a href="#top">Home</a></li>
+        <li><a href="#" onclick="openMenu('breakfast');return false;">Breakfast Menu</a></li>
+        <li><a href="#" onclick="openMenu('main');return false;">Main Menu</a></li>
+        <li><a href="#" onclick="openMenu('beverage');return false;">Beverage Menu</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Contact</h4>
+      <div id="footerAddress" style="display:none;"></div>
+      <div style="margin-top:6px;"><a id="footerEmailLink" href="mailto:">info@example.com</a></div>
+      <div id="footerPhoneRow" style="margin-top:6px;display:none;"><a id="footerPhoneLink" href="tel:"></a></div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© <span id="footerYear"></span> <span id="footerName2">Our Restaurant</span></span>
+    <a href="#" id="adminEntryLink">Staff Login</a>
+  </div>
+</footer>
+
+<!-- ============ CART DRAWER ============ -->
+<div id="cartBackdrop" class="cart-backdrop" onclick="closeCart()"></div>
+<div id="cartDrawer" class="cart-drawer">
+  <div class="cart-drawer-head">
+    <h3>Your order</h3>
+    <button class="close-x" onclick="closeCart()">✕</button>
+  </div>
+  <div class="cart-drawer-body" id="cartItemsList"></div>
+  <div class="cart-drawer-foot">
+    <div class="cart-total-row"><span>Total</span><span id="cartTotal">0 EGP</span></div>
+    <button class="btn btn-gold btn-block" id="sendOrderBtn">Send order on WhatsApp</button>
+  </div>
+</div>
+
+<!-- ============ ADMIN LOGIN ============ -->
+<div id="adminOverlay">
+  <div class="admin-login-card">
+    <h3>Admin sign in</h3>
+    <p>Use your admin account.</p>
+    <div class="field"><label>Email</label><input id="adminEmail" type="email" placeholder="you@restaurant.com"></div>
+    <div class="field"><label>Password</label><input id="adminPassword" type="password" placeholder="••••••••"></div>
+    <button class="btn btn-gold btn-block" id="adminLoginBtn">Sign in</button>
+    <div class="msg err" id="adminLoginMsg"></div>
+    <button class="btn btn-ghost-dark btn-block" id="adminCancelBtn" style="margin-top:10px;background:transparent;border:1.5px solid var(--line);color:var(--wine-700);padding:10px;border-radius:8px;font-weight:700;">Cancel</button>
+  </div>
+</div>
+
+<!-- ============ ADMIN PANEL ============ -->
+<div id="adminPanel">
+  <div class="admin-topbar">
+    <div class="brand">Admin</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="adminWhoName" style="font-size:13px;"></span>
+      <button class="btn btn-ghost btn-sm" id="adminLogoutBtn">Log out</button>
+      <button class="btn btn-ghost btn-sm" id="adminCloseBtn">Close</button>
+    </div>
+  </div>
+  <div class="admin-tabs" id="adminTabsNav">
+    <button data-tab="menu" class="active">Menu</button>
+    <button data-tab="settings">Settings</button>
+  </div>
+  <div class="admin-main">
+    <!-- MENU -->
+    <div id="admtab-menu" class="admtabpanel">
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:-4px 0 4px;">
+        Add categories to each menu (e.g. Eggs, Bowls), then add dishes inside each category. Photo fields are optional image URLs —
+        upload the photo to a host (GitHub, Imgur, Firebase Storage) and paste the direct image link here.
+      </p>
+      <div id="adminMenuContainer"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="admtab-settings" class="admtabpanel" style="display:none;">
+      <div class="panel">
+        <div class="panel-head"><h2>Restaurant info</h2></div>
+        <div class="field"><label>Name</label><input id="settingsName" placeholder="Our Restaurant"></div>
+        <div class="field"><label>Tagline</label><input id="settingsTagline" placeholder="Fresh food, made with love"></div>
+        <div class="field"><label>Contact email</label><input id="settingsEmail" type="email" placeholder="info@example.com"></div>
+        <div class="field"><label>Phone (optional)</label><input id="settingsPhone" placeholder="+20 1xx xxx xxxx"></div>
+        <div class="field"><label>Address (optional)</label><input id="settingsAddress" placeholder="Street, city"></div>
+        <button class="btn-ghost-dark" id="saveSettingsBtn">Save</button>
+        <div class="msg" id="settingsMsg"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Logo &amp; background image</h2></div>
+        <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-6px;margin-bottom:14px;">
+          One background image is used across the whole site. Upload your photos to a GitHub repo (or any image host), then
+          set the folder link below once — after that you can just type a filename (like <code>eggs.jpg</code>) in any photo
+          field on this page instead of pasting the full link every time. You can still paste a full <code>https://...</code>
+          link anywhere if you'd rather use a different host for a specific photo.
+        </p>
+        <div class="field">
+          <label>Photos folder link (GitHub)</label>
+          <input id="settingsPhotoBaseUrl" placeholder="https://raw.githubusercontent.com/yourname/yourrepo/main/images/">
+          <p style="font-size:12px;color:var(--ink-soft);margin:6px 0 0;">
+            In your GitHub repo, open an uploaded image → click "Raw" → copy that URL, then delete the filename from the end
+            (keep the trailing slash). That's your folder link.
+          </p>
+        </div>
+        <div class="field"><label>Logo filename or full URL (shown top-left)</label><input id="settingsLogoUrl" placeholder="logo.jpg"></div>
+        <div class="field"><label>Background filename or full URL</label><input id="settingsBgUrl" placeholder="background.jpg"></div>
+        <button class="btn-ghost-dark" id="saveSettingsBtn2">Save</button>
+        <div class="msg" id="settingsMsg2"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Social, WhatsApp &amp; Location</h2></div>
+        <div class="field"><label>Facebook page URL (optional)</label><input id="settingsFacebook" placeholder="https://facebook.com/..."></div>
+        <div class="field"><label>Instagram URL (optional)</label><input id="settingsInstagram" placeholder="https://instagram.com/..."></div>
+        <div class="field"><label>Google Maps / location link (optional)</label><input id="settingsLocationUrl" placeholder="https://maps.google.com/..."></div>
+        <div class="field"><label>WhatsApp number for guests (with country code, no + or spaces)</label><input id="settingsWhatsapp" placeholder="e.g. 201234567890"></div>
+        <p style="font-size:12px;color:var(--ink-soft);margin-top:-6px;">Used for the WhatsApp icon, the floating chat button, and for sending orders.</p>
+        <button class="btn-ghost-dark" id="saveSettingsBtn3">Save</button>
+        <div class="msg" id="settingsMsg3"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Ordering</h2></div>
+        <div class="toggle-row">
+          <div>
+            <div class="tt">Allow guests to order</div>
+            <div class="ts">When off, the site only shows the menu — no "add to order" buttons or cart. Turn this on when you're ready to take orders.</div>
+          </div>
+          <label class="switch"><input type="checkbox" id="orderingToggle"><span class="slider"></span></label>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>WhatsApp order alerts (CallMeBot)</h2></div>
+        <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-6px;margin-bottom:14px;">
+          Get a WhatsApp message every time a guest sends an order. Message
+          <a href="https://wa.me/34644519505?text=I%20allow%20callmebot%20to%20send%20me%20messages" target="_blank" style="color:var(--wine-700);font-weight:600;">this CallMeBot number on WhatsApp</a>
+          with the text "I allow callmebot to send me messages", wait for their reply with your API key, then enter your details below.
+        </p>
+        <div class="toggle-row" style="border-bottom:none;padding-bottom:6px;">
+          <div><div class="tt">Enable WhatsApp order alerts</div></div>
+          <label class="switch"><input type="checkbox" id="callmebotEnabled"><span class="slider"></span></label>
+        </div>
+        <div class="field"><label>Restaurant / manager phone (with country code, no + or spaces)</label><input id="callmebotPhone" placeholder="e.g. 201234567890"></div>
+        <div class="field"><label>CallMeBot API key</label><input id="callmebotApikey" placeholder="e.g. 123456"></div>
+        <button class="btn-ghost-dark" id="saveCallmebotBtn">Save</button>
+        <button class="btn-ghost-dark" id="testCallmebotBtn" style="margin-left:8px;">Send test message</button>
+        <div class="msg" id="callmebotMsg"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   FIREBASE CONFIG — replace with your own Firebase project's config.
+   Create a project at https://console.firebase.google.com, enable
+   Authentication (Email/Password) and Firestore, then paste your config
+   here. Create a document in the "users" collection keyed by each admin's
+   UID with { admin: true } so they can sign in to the admin panel below.
+   ========================================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyDFPODCLyaB-NLp4e3J4XdDuarSIdIvd5Q",
+  authDomain: "chezpaolo-c4c74.firebaseapp.com",
+  projectId: "chezpaolo-c4c74",
+  storageBucket: "chezpaolo-c4c74.firebasestorage.app",
+  messagingSenderId: "615605562135",
+  appId: "1:615605562135:web:7a0b3f71562aa5b7efa552"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+function escapeHtml(s){ return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* Turns a stored photo value into a usable URL. If it's already a full link
+   (http:// or https://) it's used as-is. Otherwise it's treated as a filename
+   and combined with the "Photos folder link" set in admin Settings. */
+function resolvePhotoUrl(value){
+  const v = (value || '').trim();
+  if(!v) return '';
+  if(/^https?:\/\//i.test(v)) return v;
+  const base = (settings.photoBaseUrl || '').trim();
+  if(!base) return v;
+  return base.replace(/\/?$/, '/') + v.replace(/^\/+/, '');
+}
+
+let currentAdminUser = null;
+let settings = {};
+let categories = [];
+let items = [];
+let cart = [];
+try{ cart = JSON.parse(localStorage.getItem('cart') || '[]'); }catch(e){ cart = []; }
+let currentMenuKey = null;
+let currentCategoryId = null;
+let callmebotSettings = { enabled:false, phone:'', apikey:'' };
+
+const MENU_KEYS = [
+  { key:'breakfast', label:'Breakfast Menu' },
+  { key:'main', label:'Main Menu' },
+  { key:'beverage', label:'Beverage Menu' }
+];
+const MENU_LABELS = { breakfast:'Breakfast Menu', main:'Main Menu', beverage:'Beverage Menu' };
+
+document.getElementById('footerYear').textContent = new Date().getFullYear();
+
+/* =========================================================================
+   SETTINGS (public + admin form)
+   ========================================================================= */
+db.collection('rSettings').doc('main').onSnapshot(doc => {
+  settings = doc.exists ? doc.data() : {};
+  renderSettingsPublic();
+  fillAdminSettingsForm();
+});
+
+function renderSettingsPublic(){
+  const name = settings.name || 'Our Restaurant';
+  const tagline = settings.tagline || 'Fresh food, made with love';
+  document.title = name + ' — Menu';
+  document.getElementById('navName').textContent = name;
+  document.getElementById('heroName').textContent = name;
+  document.getElementById('heroTagline').textContent = tagline;
+  document.getElementById('footerName').textContent = name;
+  document.getElementById('footerName2').textContent = name;
+  document.getElementById('footerBlurb').textContent = tagline;
+
+  const navLogo = document.getElementById('navLogo');
+  const logoResolved = resolvePhotoUrl(settings.logoUrl);
+  if(logoResolved){ navLogo.src = logoResolved; navLogo.style.display = 'inline-block'; }
+  else { navLogo.style.display = 'none'; }
+
+  const bgResolved = resolvePhotoUrl(settings.bgUrl);
+  document.body.style.setProperty('--site-bg', bgResolved ? `url('${bgResolved}')` : 'none');
+
+  const emailLink = document.getElementById('footerEmailLink');
+  if(settings.email){ emailLink.textContent = settings.email; emailLink.href = 'mailto:' + settings.email; emailLink.style.display = 'inline'; }
+  else { emailLink.style.display = 'none'; }
+
+  const addrEl = document.getElementById('footerAddress');
+  if(settings.address){ addrEl.textContent = settings.address; addrEl.style.display = 'block'; }
+  else { addrEl.style.display = 'none'; }
+
+  const phoneRow = document.getElementById('footerPhoneRow');
+  const phoneLink = document.getElementById('footerPhoneLink');
+  if(settings.phone){
+    phoneLink.textContent = settings.phone;
+    phoneLink.href = 'tel:' + settings.phone.replace(/\s+/g,'');
+    phoneRow.style.display = 'block';
+  } else { phoneRow.style.display = 'none'; }
+
+  const footerSocial = document.getElementById('socialRow');
+  const fsParts = [];
+  if(settings.facebookUrl) fsParts.push(`<a href="${escapeHtml(settings.facebookUrl)}" target="_blank" title="Facebook">f</a>`);
+  if(settings.instagramUrl) fsParts.push(`<a href="${escapeHtml(settings.instagramUrl)}" target="_blank" title="Instagram">📷</a>`);
+  if(settings.locationUrl) fsParts.push(`<a href="${escapeHtml(settings.locationUrl)}" target="_blank" title="Find us">📍</a>`);
+  footerSocial.innerHTML = fsParts.join('');
+
+  const heroSocial = document.getElementById('heroSocialRow');
+  const hsParts = [];
+  if(settings.whatsappNumber) hsParts.push(`<a class="hero-social-item" href="https://wa.me/${settings.whatsappNumber.replace(/[^0-9]/g,'')}" target="_blank"><span class="hero-social-icon">💬</span>WhatsApp</a>`);
+  if(settings.facebookUrl) hsParts.push(`<a class="hero-social-item" href="${escapeHtml(settings.facebookUrl)}" target="_blank"><span class="hero-social-icon">f</span>Facebook</a>`);
+  if(settings.instagramUrl) hsParts.push(`<a class="hero-social-item" href="${escapeHtml(settings.instagramUrl)}" target="_blank"><span class="hero-social-icon">📷</span>Instagram</a>`);
+  if(settings.locationUrl) hsParts.push(`<a class="hero-social-item" href="${escapeHtml(settings.locationUrl)}" target="_blank"><span class="hero-social-icon">📍</span>Find us</a>`);
+  heroSocial.innerHTML = hsParts.join('');
+
+  const waFloat = document.getElementById('whatsappFloat');
+  if(settings.whatsappNumber){
+    waFloat.href = `https://wa.me/${settings.whatsappNumber.replace(/[^0-9]/g,'')}`;
+    waFloat.style.display = 'flex';
+  } else { waFloat.style.display = 'none'; }
+
+  document.getElementById('cartNavBtn').style.display = settings.orderingEnabled ? 'flex' : 'none';
+  callmebotSettings = settings.callmebot || { enabled:false, phone:'', apikey:'' };
+
+  renderMenuBrowser();
+  if(currentAdminUser) renderAdminMenuTab();
+}
+
+function fillAdminSettingsForm(){
+  document.getElementById('settingsName').value = settings.name || '';
+  document.getElementById('settingsTagline').value = settings.tagline || '';
+  document.getElementById('settingsEmail').value = settings.email || '';
+  document.getElementById('settingsPhone').value = settings.phone || '';
+  document.getElementById('settingsAddress').value = settings.address || '';
+  document.getElementById('settingsPhotoBaseUrl').value = settings.photoBaseUrl || '';
+  document.getElementById('settingsLogoUrl').value = settings.logoUrl || '';
+  document.getElementById('settingsBgUrl').value = settings.bgUrl || '';
+  document.getElementById('settingsFacebook').value = settings.facebookUrl || '';
+  document.getElementById('settingsInstagram').value = settings.instagramUrl || '';
+  document.getElementById('settingsLocationUrl').value = settings.locationUrl || '';
+  document.getElementById('settingsWhatsapp').value = settings.whatsappNumber || '';
+  document.getElementById('orderingToggle').checked = !!settings.orderingEnabled;
+  document.getElementById('callmebotEnabled').checked = !!callmebotSettings.enabled;
+  document.getElementById('callmebotPhone').value = callmebotSettings.phone || '';
+  document.getElementById('callmebotApikey').value = callmebotSettings.apikey || '';
+}
+
+document.getElementById('saveSettingsBtn').onclick = async () => {
+  const name = document.getElementById('settingsName').value.trim();
+  const tagline = document.getElementById('settingsTagline').value.trim();
+  const email = document.getElementById('settingsEmail').value.trim();
+  const phone = document.getElementById('settingsPhone').value.trim();
+  const address = document.getElementById('settingsAddress').value.trim();
+  const msg = document.getElementById('settingsMsg');
+  if(!name){ msg.textContent = 'Enter a restaurant name.'; msg.className = 'msg err'; return; }
+  try{
+    await db.collection('rSettings').doc('main').set({ name, tagline, email, phone, address }, { merge: true });
+    msg.textContent = 'Saved.'; msg.className = 'msg ok';
+  }catch(err){ msg.textContent = err.message; msg.className = 'msg err'; }
+};
+
+document.getElementById('saveSettingsBtn2').onclick = async () => {
+  const photoBaseUrl = document.getElementById('settingsPhotoBaseUrl').value.trim();
+  const logoUrl = document.getElementById('settingsLogoUrl').value.trim();
+  const bgUrl = document.getElementById('settingsBgUrl').value.trim();
+  const msg = document.getElementById('settingsMsg2');
+  try{
+    await db.collection('rSettings').doc('main').set({ photoBaseUrl, logoUrl, bgUrl }, { merge: true });
+    msg.textContent = 'Saved.'; msg.className = 'msg ok';
+  }catch(err){ msg.textContent = err.message; msg.className = 'msg err'; }
+};
+
+document.getElementById('saveSettingsBtn3').onclick = async () => {
+  const facebookUrl = document.getElementById('settingsFacebook').value.trim();
+  const instagramUrl = document.getElementById('settingsInstagram').value.trim();
+  const locationUrl = document.getElementById('settingsLocationUrl').value.trim();
+  const whatsappNumber = document.getElementById('settingsWhatsapp').value.trim();
+  const msg = document.getElementById('settingsMsg3');
+  try{
+    await db.collection('rSettings').doc('main').set({ facebookUrl, instagramUrl, locationUrl, whatsappNumber }, { merge: true });
+    msg.textContent = 'Saved.'; msg.className = 'msg ok';
+  }catch(err){ msg.textContent = err.message; msg.className = 'msg err'; }
+};
+
+document.getElementById('orderingToggle').onchange = async (e) => {
+  try{
+    await db.collection('rSettings').doc('main').set({ orderingEnabled: e.target.checked }, { merge: true });
+  }catch(err){ alert('Could not update: ' + err.message); e.target.checked = !e.target.checked; }
+};
+
+/* ---- CallMeBot WhatsApp order alerts ---- */
+document.getElementById('saveCallmebotBtn').onclick = async () => {
+  const enabled = document.getElementById('callmebotEnabled').checked;
+  const phone = document.getElementById('callmebotPhone').value.trim();
+  const apikey = document.getElementById('callmebotApikey').value.trim();
+  const msg = document.getElementById('callmebotMsg');
+  if(enabled && (!phone || !apikey)){
+    msg.textContent = 'Enter both a phone number and API key to enable alerts.';
+    msg.className = 'msg err';
+    return;
+  }
+  try{
+    await db.collection('rSettings').doc('main').set({ callmebot: { enabled, phone, apikey } }, { merge: true });
+    msg.textContent = 'Saved.'; msg.className = 'msg ok';
+  }catch(err){ msg.textContent = err.message; msg.className = 'msg err'; }
+};
+document.getElementById('testCallmebotBtn').onclick = async () => {
+  const msg = document.getElementById('callmebotMsg');
+  const phone = document.getElementById('callmebotPhone').value.trim();
+  const apikey = document.getElementById('callmebotApikey').value.trim();
+  if(!phone || !apikey){ msg.textContent = 'Enter phone and API key first.'; msg.className = 'msg err'; return; }
+  msg.textContent = 'Sending…'; msg.className = 'msg';
+  const ok = await sendWhatsappAlert('✅ Test message from your menu admin panel.', { phone, apikey, enabled:true });
+  msg.textContent = ok ? 'Test message sent — check WhatsApp.' : 'Could not send. Double check your number and API key.';
+  msg.className = ok ? 'msg ok' : 'msg err';
+};
+async function sendWhatsappAlert(text, override){
+  const cfg = override || callmebotSettings;
+  if(!cfg || !cfg.enabled || !cfg.phone || !cfg.apikey) return false;
+  try{
+    const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(cfg.phone)}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(cfg.apikey)}`;
+    await fetch(url, { mode:'no-cors' });
+    return true;
+  }catch(err){
+    console.warn('CallMeBot alert failed', err);
+    return false;
+  }
+}
+
+/* =========================================================================
+   MENU (categories + dishes)
+   ========================================================================= */
+db.collection('menuCategories').orderBy('order').onSnapshot(snap => {
+  categories = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+  renderMenuBrowser();
+  if(currentAdminUser) renderAdminMenuTab();
+}, err => console.error(err));
+
+db.collection('menuItems').orderBy('order').onSnapshot(snap => {
+  items = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+  renderMenuBrowser();
+  if(currentAdminUser) renderAdminMenuTab();
+}, err => console.error(err));
+
+function openMenu(key){
+  currentMenuKey = key;
+  currentCategoryId = null;
+  document.getElementById('menuBrowser').style.display = 'block';
+  renderMenuBrowser();
+  document.getElementById('menuBrowser').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+function openCategory(id){
+  currentCategoryId = id;
+  renderMenuBrowser();
+  document.getElementById('menuBrowser').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+function backToCategories(){ currentCategoryId = null; renderMenuBrowser(); }
+function backToHome(){
+  currentMenuKey = null; currentCategoryId = null;
+  document.getElementById('menuBrowser').style.display = 'none';
+  document.getElementById('top').scrollIntoView({ behavior:'smooth' });
+}
+
+function renderMenuBrowser(){
+  if(!currentMenuKey) return;
+  const headEl = document.getElementById('menuBrowserHead');
+  const bodyEl = document.getElementById('menuBrowserBody');
+
+  if(!currentCategoryId){
+    const cats = categories.filter(c => c.menu === currentMenuKey);
+    headEl.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+        <div><h2 class="section-title" style="margin-bottom:2px;">${escapeHtml(MENU_LABELS[currentMenuKey])}</h2><p class="section-sub" style="margin:0;">Choose a category</p></div>
+        <button class="btn-ghost-dark" onclick="backToHome()">← Back</button>
+      </div>`;
+    bodyEl.innerHTML = cats.length === 0
+      ? '<div class="empty-state">This menu is coming soon.</div>'
+      : `<div class="cat-grid">${cats.map(c => `
+          <div class="cat-card" onclick="openCategory('${c.id}')" style="background-image:url('${escapeHtml(resolvePhotoUrl(c.photoUrl))}')">
+            <div class="cat-card-label">${escapeHtml(c.name)}</div>
+          </div>`).join('')}</div>`;
+  } else {
+    const cat = categories.find(c => c.id === currentCategoryId);
+    const dishes = items.filter(i => i.categoryId === currentCategoryId);
+    headEl.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+        <div><h2 class="section-title" style="margin-bottom:2px;">${escapeHtml(cat ? cat.name : '')}</h2><p class="section-sub" style="margin:0;">${escapeHtml(MENU_LABELS[currentMenuKey])}</p></div>
+        <button class="btn-ghost-dark" onclick="backToCategories()">← Categories</button>
+      </div>`;
+    bodyEl.innerHTML = dishes.length === 0
+      ? '<div class="empty-state">No dishes yet.</div>'
+      : `<div class="dish-grid">${dishes.map(d => `
+          <div class="dish-card">
+            ${resolvePhotoUrl(d.photoUrl) ? `<img class="dish-photo" src="${escapeHtml(resolvePhotoUrl(d.photoUrl))}" alt="${escapeHtml(d.name)}">` : `<div class="dish-photo-empty">No photo</div>`}
+            <div class="dish-body">
+              <div class="mname">${escapeHtml(d.name)}</div>
+              <div class="mprice">${Number(d.price||0)} EGP</div>
+              ${settings.orderingEnabled ? `<button class="btn btn-gold btn-sm btn-block" style="margin-top:8px;" onclick="addToCart('${d.id}')">+ Add to order</button>` : ''}
+            </div>
+          </div>`).join('')}</div>`;
+  }
+}
+
+/* =========================================================================
+   CART / ORDERING
+   ========================================================================= */
+function saveCart(){ localStorage.setItem('cart', JSON.stringify(cart)); renderCart(); }
+function addToCart(itemId){
+  const it = items.find(i => i.id === itemId); if(!it) return;
+  const existing = cart.find(c => c.id === itemId);
+  if(existing) existing.qty++; else cart.push({ id: itemId, name: it.name, price: Number(it.price||0), qty: 1 });
+  saveCart();
+  openCart();
+}
+function changeQty(itemId, delta){
+  const c = cart.find(c => c.id === itemId); if(!c) return;
+  c.qty += delta;
+  if(c.qty <= 0) cart = cart.filter(x => x.id !== itemId);
+  saveCart();
+}
+function cartTotal(){ return cart.reduce((s,c) => s + c.price*c.qty, 0); }
+function cartCount(){ return cart.reduce((s,c) => s + c.qty, 0); }
+function renderCart(){
+  const badge = document.getElementById('cartBadge');
+  badge.textContent = cartCount();
+  badge.style.display = cartCount() > 0 ? 'flex' : 'none';
+  const body = document.getElementById('cartItemsList');
+  body.innerHTML = cart.length === 0
+    ? '<div class="empty-state">Your order is empty.</div>'
+    : cart.map(c => `
+      <div class="row-item">
+        <div class="rmain"><div class="t1">${escapeHtml(c.name)}</div><div class="t2">${c.price} EGP × ${c.qty}</div></div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button class="btn-ghost-dark" onclick="changeQty('${c.id}',-1)">−</button>
+          <button class="btn-ghost-dark" onclick="changeQty('${c.id}',1)">+</button>
+        </div>
+      </div>`).join('');
+  document.getElementById('cartTotal').textContent = cartTotal() + ' EGP';
+}
+function openCart(){ document.getElementById('cartDrawer').classList.add('show'); document.getElementById('cartBackdrop').classList.add('show'); }
+function closeCart(){ document.getElementById('cartDrawer').classList.remove('show'); document.getElementById('cartBackdrop').classList.remove('show'); }
+renderCart();
+
+document.getElementById('sendOrderBtn').onclick = () => {
+  if(cart.length === 0) return;
+  const lines = cart.map(c => `• ${c.name} x${c.qty} — ${c.price*c.qty} EGP`).join('\n');
+  const text = `New order:\n${lines}\nTotal: ${cartTotal()} EGP`;
+  const number = (settings.whatsappNumber || '').replace(/[^0-9]/g,'');
+  if(number){ window.open(`https://wa.me/${number}?text=${encodeURIComponent(text)}`, '_blank'); }
+  else { alert('The restaurant has not set up a WhatsApp number yet.'); return; }
+  sendWhatsappAlert(`🛎️ ${text}`);
+  cart = []; saveCart(); closeCart();
+};
+
+/* =========================================================================
+   ADMIN — auth
+   ========================================================================= */
+document.getElementById('adminEntryLink').onclick = (e) => {
+  e.preventDefault();
+  document.getElementById('adminLoginMsg').textContent = '';
+  document.getElementById('adminEmail').value = '';
+  document.getElementById('adminPassword').value = '';
+  document.getElementById('adminOverlay').classList.add('show');
+};
+document.getElementById('adminCancelBtn').onclick = () => {
+  document.getElementById('adminOverlay').classList.remove('show');
+};
+
+document.getElementById('adminLoginBtn').onclick = async () => {
+  const email = document.getElementById('adminEmail').value.trim();
+  const pw = document.getElementById('adminPassword').value;
+  const msg = document.getElementById('adminLoginMsg');
+  msg.textContent = '';
+  if(!email || !pw){ msg.textContent = 'Enter your email and password.'; return; }
+  const btn = document.getElementById('adminLoginBtn');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try{
+    const cred = await auth.signInWithEmailAndPassword(email, pw);
+    const userDoc = await db.collection('users').doc(cred.user.uid).get();
+    const perms = userDoc.exists ? (userDoc.data().permissions || {}) : {};
+    if(!userDoc.exists || (perms.admin !== true && userDoc.data().admin !== true)){
+      msg.textContent = 'This account does not have admin access.';
+      await auth.signOut();
+      return;
+    }
+    currentAdminUser = { uid: cred.user.uid, name: userDoc.data().name || email };
+    document.getElementById('adminOverlay').classList.remove('show');
+    document.getElementById('adminPanel').classList.add('show');
+    document.getElementById('adminWhoName').textContent = currentAdminUser.name;
+    switchAdminTab('menu');
+  }catch(err){
+    const map = {
+      'auth/wrong-password':'Incorrect password.',
+      'auth/invalid-credential':'Incorrect email or password.',
+      'auth/user-not-found':'No account with that email.',
+      'auth/too-many-requests':'Too many attempts, try again shortly.'
+    };
+    msg.textContent = map[err.code] || err.message;
+  }finally{
+    btn.disabled = false; btn.textContent = 'Sign in';
+  }
+};
+
+document.getElementById('adminLogoutBtn').onclick = () => {
+  auth.signOut();
+  currentAdminUser = null;
+  document.getElementById('adminPanel').classList.remove('show');
+};
+document.getElementById('adminCloseBtn').onclick = () => {
+  document.getElementById('adminPanel').classList.remove('show');
+};
+
+document.querySelectorAll('#adminTabsNav button').forEach(btn => {
+  btn.onclick = () => switchAdminTab(btn.dataset.tab);
+});
+function switchAdminTab(tab){
+  document.querySelectorAll('.admtabpanel').forEach(p => p.style.display = 'none');
+  document.getElementById('admtab-' + tab).style.display = 'block';
+  document.querySelectorAll('#adminTabsNav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  if(tab === 'menu') renderAdminMenuTab();
+  if(tab === 'settings') fillAdminSettingsForm();
+}
+
+/* =========================================================================
+   ADMIN — menu management (categories + dishes)
+   ========================================================================= */
+function renderAdminMenuTab(){
+  const container = document.getElementById('adminMenuContainer');
+  if(!container) return;
+  container.innerHTML = MENU_KEYS.map(m => {
+    const cats = categories.filter(c => c.menu === m.key).sort((a,b) => (a.order||0)-(b.order||0));
+    return `
+    <div class="panel">
+      <div class="panel-head"><h2>${m.label}</h2></div>
+      <div>
+        ${cats.length === 0 ? '<div class="empty-state">No categories yet — add one below.</div>' : cats.map((c,idx) => renderAdminCategoryRow(c, idx, cats.length)).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+        <input id="newCatName-${m.key}" placeholder="Category name (e.g. Eggs, Bowls)" style="flex:1;min-width:140px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
+        <input id="newCatPhoto-${m.key}" placeholder="Photo filename (optional, e.g. eggs.jpg)" style="flex:1;min-width:160px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
+        <button class="btn-ghost-dark" onclick="addCategory('${m.key}')">+ Add category</button>
+      </div>
+      <div class="msg" id="catMsg-${m.key}"></div>
+    </div>`;
+  }).join('');
+}
+
+function renderAdminCategoryRow(c, idx, total){
+  const dishes = items.filter(i => i.categoryId === c.id).sort((a,b) => (a.order||0)-(b.order||0));
+  return `
+  <div class="row-item" style="flex-direction:column;align-items:stretch;">
+    <div style="display:flex;align-items:center;gap:12px;width:100%;flex-wrap:wrap;">
+      <img src="${escapeHtml(resolvePhotoUrl(c.photoUrl))}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--cream-100);flex-shrink:0;" onerror="this.style.opacity='0.2'">
+      <div class="rmain"><div class="t1">${escapeHtml(c.name)}</div><div class="t2">${dishes.length} dish(es)</div></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn-ghost-dark" onclick="editCategory('${c.id}')">Edit</button>
+        <button class="btn-ghost-dark" ${idx===0?'disabled':''} onclick="moveCategory('${c.id}','${c.menu}',-1)">↑</button>
+        <button class="btn-ghost-dark" ${idx===total-1?'disabled':''} onclick="moveCategory('${c.id}','${c.menu}',1)">↓</button>
+        <button class="btn-danger" onclick="deleteCategory('${c.id}')">Delete</button>
+      </div>
+    </div>
+    <div style="margin-top:10px;padding:10px 0 0;border-top:1px dashed var(--line);">
+      ${dishes.length === 0 ? '<div class="empty-state" style="padding:14px;">No dishes yet.</div>' : dishes.map((d,i) => renderAdminItemRow(d,i,dishes.length)).join('')}
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+        <input id="newItemName-${c.id}" placeholder="Dish name" style="flex:1;min-width:120px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
+        <input id="newItemPrice-${c.id}" type="number" min="0" placeholder="Price (EGP)" style="width:120px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
+        <input id="newItemPhoto-${c.id}" placeholder="Photo filename (optional, e.g. omelette.jpg)" style="flex:1;min-width:140px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
+        <button class="btn-ghost-dark" onclick="addItem('${c.id}')">+ Add dish</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderAdminItemRow(d, idx, total){
+  return `
+  <div class="row-item">
+    <img src="${escapeHtml(resolvePhotoUrl(d.photoUrl))}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:var(--cream-100);" onerror="this.style.opacity='0.2'">
+    <div class="rmain"><div class="t1">${escapeHtml(d.name)}</div><div class="t2">${Number(d.price||0)} EGP</div></div>
+    <div style="display:flex;gap:6px;">
+      <button class="btn-ghost-dark" onclick="editItem('${d.id}')">Edit</button>
+      <button class="btn-ghost-dark" ${idx===0?'disabled':''} onclick="moveItem('${d.id}','${d.categoryId}',-1)">↑</button>
+      <button class="btn-ghost-dark" ${idx===total-1?'disabled':''} onclick="moveItem('${d.id}','${d.categoryId}',1)">↓</button>
+      <button class="btn-danger" onclick="deleteItem('${d.id}')">Delete</button>
+    </div>
+  </div>`;
+}
+
+async function addCategory(menuKey){
+  const nameInp = document.getElementById('newCatName-'+menuKey);
+  const photoInp = document.getElementById('newCatPhoto-'+menuKey);
+  const name = nameInp.value.trim();
+  const msg = document.getElementById('catMsg-'+menuKey);
+  if(!name){ msg.textContent = 'Enter a category name.'; msg.className = 'msg err'; return; }
+  const order = categories.filter(c => c.menu === menuKey).length;
+  try{
+    await db.collection('menuCategories').add({ menu: menuKey, name, photoUrl: photoInp.value.trim(), order });
+    nameInp.value = ''; photoInp.value = ''; msg.textContent = 'Added.'; msg.className = 'msg ok';
+  }catch(err){ msg.textContent = err.message; msg.className = 'msg err'; }
+}
+function editCategory(id){
+  const c = categories.find(x => x.id === id); if(!c) return;
+  const name = prompt('Category name:', c.name); if(name === null) return;
+  const photoUrl = prompt('Photo filename (e.g. eggs.jpg) or full URL — leave blank for none:', c.photoUrl || '');
+  db.collection('menuCategories').doc(id).update({ name: name.trim() || c.name, photoUrl: (photoUrl||'').trim() });
+}
+function deleteCategory(id){
+  const dishCount = items.filter(i => i.categoryId === id).length;
+  if(!confirm(`Delete this category${dishCount ? ` and its ${dishCount} dish(es)` : ''}?`)) return;
+  const batch = db.batch();
+  batch.delete(db.collection('menuCategories').doc(id));
+  items.filter(i => i.categoryId === id).forEach(i => batch.delete(db.collection('menuItems').doc(i.id)));
+  batch.commit();
+}
+function moveCategory(id, menuKey, delta){
+  const cats = categories.filter(c => c.menu === menuKey).sort((a,b) => (a.order||0)-(b.order||0));
+  const idx = cats.findIndex(c => c.id === id);
+  const j = idx + delta;
+  if(j < 0 || j >= cats.length) return;
+  const batch = db.batch();
+  batch.update(db.collection('menuCategories').doc(cats[idx].id), { order: cats[j].order });
+  batch.update(db.collection('menuCategories').doc(cats[j].id), { order: cats[idx].order });
+  batch.commit();
+}
+
+async function addItem(categoryId){
+  const nameInp = document.getElementById('newItemName-'+categoryId);
+  const priceInp = document.getElementById('newItemPrice-'+categoryId);
+  const photoInp = document.getElementById('newItemPhoto-'+categoryId);
+  const name = nameInp.value.trim();
+  if(!name) return;
+  const price = Number(priceInp.value) || 0;
+  const order = items.filter(i => i.categoryId === categoryId).length;
+  try{
+    await db.collection('menuItems').add({ categoryId, name, price, photoUrl: photoInp.value.trim(), order });
+    nameInp.value = ''; priceInp.value = ''; photoInp.value = '';
+  }catch(err){ alert(err.message); }
+}
+function editItem(id){
+  const d = items.find(x => x.id === id); if(!d) return;
+  const name = prompt('Dish name:', d.name); if(name === null) return;
+  const priceStr = prompt('Price (EGP):', d.price); if(priceStr === null) return;
+  const photoUrl = prompt('Photo filename (e.g. omelette.jpg) or full URL — leave blank for none:', d.photoUrl || '');
+  db.collection('menuItems').doc(id).update({ name: name.trim() || d.name, price: Number(priceStr) || 0, photoUrl: (photoUrl||'').trim() });
+}
+function deleteItem(id){
+  if(!confirm('Delete this dish?')) return;
+  db.collection('menuItems').doc(id).delete();
+}
+function moveItem(id, categoryId, delta){
+  const arr = items.filter(i => i.categoryId === categoryId).sort((a,b) => (a.order||0)-(b.order||0));
+  const idx = arr.findIndex(i => i.id === id);
+  const j = idx + delta;
+  if(j < 0 || j >= arr.length) return;
+  const batch = db.batch();
+  batch.update(db.collection('menuItems').doc(arr[idx].id), { order: arr[j].order });
+  batch.update(db.collection('menuItems').doc(arr[j].id), { order: arr[idx].order });
+  batch.commit();
+}
+</script>
+</body>
+</html>
