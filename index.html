@@ -304,20 +304,11 @@
       <div class="panel">
         <div class="panel-head"><h2>Logo &amp; background image</h2></div>
         <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-6px;margin-bottom:14px;">
-          One background image is used across the whole site. Upload your photos to a GitHub repo (or any image host), then
-          set the folder link below once — after that you can just type a filename (like <code>eggs.jpg</code>) in any photo
-          field on this page instead of pasting the full link every time. You can still paste a full <code>https://...</code>
-          link anywhere if you'd rather use a different host for a specific photo.
+          One background image is used across the whole site. Just upload your photo to your GitHub photos repo and type its
+          filename (like <code>Logo.png</code>) below — no need to paste a full link. You can still paste a full
+          <code>https://...</code> link if you'd rather use a different host for a specific photo.
         </p>
-        <div class="field">
-          <label>Photos folder link (GitHub)</label>
-          <input id="settingsPhotoBaseUrl" placeholder="https://raw.githubusercontent.com/yourname/yourrepo/main/images/">
-          <p style="font-size:12px;color:var(--ink-soft);margin:6px 0 0;">
-            In your GitHub repo, open an uploaded image → click "Raw" → copy that URL, then delete the filename from the end
-            (keep the trailing slash). That's your folder link.
-          </p>
-        </div>
-        <div class="field"><label>Logo filename or full URL (shown top-left)</label><input id="settingsLogoUrl" placeholder="logo.jpg"></div>
+        <div class="field"><label>Logo filename or full URL (shown top-left)</label><input id="settingsLogoUrl" placeholder="Logo.png"></div>
         <div class="field"><label>Background filename or full URL</label><input id="settingsBgUrl" placeholder="background.jpg"></div>
         <button class="btn-ghost-dark" id="saveSettingsBtn2">Save</button>
         <div class="msg" id="settingsMsg2"></div>
@@ -385,16 +376,19 @@ const db = firebase.firestore();
 
 function escapeHtml(s){ return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+/* Your GitHub repo where you upload menu photos. Any filename typed into a
+   photo field (e.g. "Logo.png") is automatically turned into the full link
+   below + that filename. You never need to touch a setting for this. */
+const GITHUB_PHOTO_BASE = "https://raw.githubusercontent.com/ChezPaolo/Menu/main/";
+
 /* Turns a stored photo value into a usable URL. If it's already a full link
    (http:// or https://) it's used as-is. Otherwise it's treated as a filename
-   and combined with the "Photos folder link" set in admin Settings. */
+   from your GitHub repo above. */
 function resolvePhotoUrl(value){
   const v = (value || '').trim();
   if(!v) return '';
   if(/^https?:\/\//i.test(v)) return v;
-  const base = (settings.photoBaseUrl || '').trim();
-  if(!base) return v;
-  return base.replace(/\/?$/, '/') + v.replace(/^\/+/, '');
+  return GITHUB_PHOTO_BASE.replace(/\/?$/, '/') + v.replace(/^\/+/, '');
 }
 
 let currentAdminUser = null;
@@ -494,7 +488,6 @@ function fillAdminSettingsForm(){
   document.getElementById('settingsEmail').value = settings.email || '';
   document.getElementById('settingsPhone').value = settings.phone || '';
   document.getElementById('settingsAddress').value = settings.address || '';
-  document.getElementById('settingsPhotoBaseUrl').value = settings.photoBaseUrl || '';
   document.getElementById('settingsLogoUrl').value = settings.logoUrl || '';
   document.getElementById('settingsBgUrl').value = settings.bgUrl || '';
   document.getElementById('settingsFacebook').value = settings.facebookUrl || '';
@@ -522,12 +515,11 @@ document.getElementById('saveSettingsBtn').onclick = async () => {
 };
 
 document.getElementById('saveSettingsBtn2').onclick = async () => {
-  const photoBaseUrl = document.getElementById('settingsPhotoBaseUrl').value.trim();
   const logoUrl = document.getElementById('settingsLogoUrl').value.trim();
   const bgUrl = document.getElementById('settingsBgUrl').value.trim();
   const msg = document.getElementById('settingsMsg2');
   try{
-    await db.collection('rSettings').doc('main').set({ photoBaseUrl, logoUrl, bgUrl }, { merge: true });
+    await db.collection('rSettings').doc('main').set({ logoUrl, bgUrl }, { merge: true });
     msg.textContent = 'Saved.'; msg.className = 'msg ok';
   }catch(err){ msg.textContent = err.message; msg.className = 'msg err'; }
 };
