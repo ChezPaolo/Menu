@@ -97,6 +97,7 @@
   .dish-photo-empty{aspect-ratio:1/1;width:100%;display:flex;align-items:center;justify-content:center;color:var(--ink-soft);font-size:12px;background:var(--cream-100);}
   .dish-body{padding:11px 13px 13px;}
   .mname{font-weight:700;font-size:14.5px;color:var(--wine-900);}
+  .mnote{font-size:12px;color:var(--ink-soft);margin-top:2px;line-height:1.4;}
   .mprice{font-weight:700;color:var(--gold-dark);margin-top:4px;font-size:13.5px;}
 
   /* cart drawer */
@@ -480,6 +481,8 @@ let items = [];
 let customMenus = [];
 let sideDishes = [];
 let expandedSidesItemId = null;
+let editingCategoryId = null;
+let editingItemId = null;
 let cart = [];
 try{ cart = JSON.parse(localStorage.getItem('cart') || '[]'); }catch(e){ cart = []; }
 let currentMenuKey = null;
@@ -814,6 +817,7 @@ function renderMenuBrowser(){
             ${resolvePhotoUrl(d.photoUrl) ? `<img class="dish-photo" src="${escapeHtml(resolvePhotoUrl(d.photoUrl))}" alt="${escapeHtml(d.name)}">` : `<div class="dish-photo-empty">No photo</div>`}
             <div class="dish-body">
               <div class="mname">${escapeHtml(d.name)}</div>
+              ${d.note ? `<div class="mnote">${escapeHtml(d.note)}</div>` : ''}
               <div class="mprice">${Number(d.price||0)} EGP</div>
               ${orderControl}
             </div>
@@ -831,10 +835,12 @@ function toggleSidesPanel(itemId){
   const d = items.find(i => i.id === itemId);
   if(!d) return;
   const max = d.maxSides || 1;
+  const free = d.includedFreeSides || 0;
   const options = (d.sideDishIds || []).map(sid => sideDishes.find(s => s.id === sid)).filter(Boolean);
   panel.dataset.max = max;
+  const freeNote = free > 0 ? ` — first ${free} free, extra ${free===1?'is':'are'} charged` : '';
   panel.innerHTML = `
-    <div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px;">Choose up to ${max} side${max>1?'s':''}:</div>
+    <div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px;">Choose up to ${max} side${max>1?'s':''}${freeNote}:</div>
     ${options.map(o => `
       <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;">
         <input type="checkbox" class="sideOpt-${itemId}" value="${o.id}" onchange="enforceSideMax('${itemId}')">
@@ -859,7 +865,9 @@ function addToCartWithSides(itemId){
   const it = items.find(i => i.id === itemId); if(!it) return;
   const boxes = Array.from(document.getElementsByClassName('sideOpt-'+itemId)).filter(b => b.checked);
   const chosen = boxes.map(b => sideDishes.find(s => s.id === b.value)).filter(Boolean);
-  const sidesTotal = chosen.reduce((s,c) => s + Number(c.price||0), 0);
+  const free = it.includedFreeSides || 0;
+  const sidesTotal = chosen.reduce((sum, c, idx) => idx < free ? sum : sum + Number(c.price||0), 0);
+  const sideNames = chosen.map((c, idx) => idx < free ? c.name : `${c.name} +${Number(c.price||0)} EGP`);
   const cartKey = itemId + '|' + chosen.map(c => c.id).sort().join(',');
   const existing = cart.find(c => c.cartKey === cartKey);
   if(existing){
@@ -868,7 +876,7 @@ function addToCartWithSides(itemId){
     cart.push({
       cartKey,
       id: itemId,
-      name: it.name + (chosen.length ? ` (${chosen.map(c => c.name).join(', ')})` : ''),
+      name: it.name + (sideNames.length ? ` (${sideNames.join(', ')})` : ''),
       price: Number(it.price||0) + sidesTotal,
       qty: 1
     });
@@ -1192,24 +1200,34 @@ function deleteMenu(menuId){
 
 function renderAdminCategoryRow(c, idx, total){
   const dishes = items.filter(i => i.categoryId === c.id).sort((a,b) => (a.order||0)-(b.order||0));
-  return `
-  <div class="row-item" style="flex-direction:column;align-items:stretch;">
+  const isEditing = editingCategoryId === c.id;
+  const topRow = isEditing ? `
+    <div style="display:flex;align-items:center;gap:10px;width:100%;flex-wrap:wrap;">
+      <input id="editCatName-${c.id}" value="${escapeHtml(c.name)}" placeholder="Category name" style="flex:1;min-width:140px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
+      <input id="editCatPhoto-${c.id}" value="${escapeHtml(c.photoUrl||'')}" placeholder="Photo filename" style="flex:1;min-width:160px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
+      <button class="btn-ghost-dark" onclick="saveCategoryEdit('${c.id}')">Save</button>
+      <button class="btn-ghost-dark" onclick="cancelCategoryEdit()">Cancel</button>
+    </div>` : `
     <div style="display:flex;align-items:center;gap:12px;width:100%;flex-wrap:wrap;">
       <img src="${escapeHtml(resolvePhotoUrl(c.photoUrl))}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--cream-100);flex-shrink:0;" onerror="this.style.opacity='0.2'">
       <div class="rmain"><div class="t1">${escapeHtml(c.name)}</div><div class="t2">${dishes.length} dish(es)</div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="btn-ghost-dark" onclick="editCategory('${c.id}')">Edit</button>
+        <button class="btn-ghost-dark" onclick="toggleCategoryEdit('${c.id}')">Edit</button>
         <button class="btn-ghost-dark" ${idx===0?'disabled':''} onclick="moveCategory('${c.id}','${c.menu}',-1)">↑</button>
         <button class="btn-ghost-dark" ${idx===total-1?'disabled':''} onclick="moveCategory('${c.id}','${c.menu}',1)">↓</button>
         <button class="btn-danger" onclick="deleteCategory('${c.id}')">Delete</button>
       </div>
-    </div>
+    </div>`;
+  return `
+  <div class="row-item" style="flex-direction:column;align-items:stretch;">
+    ${topRow}
     <div style="margin-top:10px;padding:10px 0 0;border-top:1px dashed var(--line);">
       ${dishes.length === 0 ? '<div class="empty-state" style="padding:14px;">No dishes yet.</div>' : dishes.map((d,i) => renderAdminItemRow(d,i,dishes.length)).join('')}
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
         <input id="newItemName-${c.id}" placeholder="Dish name" style="flex:1;min-width:120px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
         <input id="newItemPrice-${c.id}" type="number" min="0" placeholder="Price (EGP)" style="width:120px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
         <input id="newItemPhoto-${c.id}" placeholder="Photo filename (optional, e.g. omelette.jpg)" style="flex:1;min-width:140px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
+        <input id="newItemNote-${c.id}" placeholder="Note (optional, e.g. Parmesano Chicken)" style="flex:1;min-width:180px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
         <button class="btn-ghost-dark" onclick="addItem('${c.id}')">+ Add dish</button>
       </div>
     </div>
@@ -1218,26 +1236,63 @@ function renderAdminCategoryRow(c, idx, total){
 
 function renderAdminItemRow(d, idx, total){
   const isExpanded = expandedSidesItemId === d.id;
+  const isEditing = editingItemId === d.id;
   const sidesTag = d.sidesEnabled ? ` • Sides on (max ${d.maxSides||1})` : '';
-  return `
-  <div class="row-item" style="flex-direction:column;align-items:stretch;">
+  const noteTag = d.note ? ` • “${d.note}”` : '';
+  const topRow = isEditing ? `
+    <div style="display:flex;align-items:center;gap:10px;width:100%;flex-wrap:wrap;">
+      <input id="editItemName-${d.id}" value="${escapeHtml(d.name)}" placeholder="Dish name" style="flex:1;min-width:120px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
+      <input id="editItemPrice-${d.id}" type="number" min="0" value="${Number(d.price||0)}" style="width:110px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
+      <input id="editItemPhoto-${d.id}" value="${escapeHtml(d.photoUrl||'')}" placeholder="Photo filename" style="flex:1;min-width:140px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
+      <input id="editItemNote-${d.id}" value="${escapeHtml(d.note||'')}" placeholder="Note (optional, e.g. Parmesano Chicken)" style="flex:1;min-width:180px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
+      <button class="btn-ghost-dark" onclick="saveItemEdit('${d.id}')">Save</button>
+      <button class="btn-ghost-dark" onclick="cancelItemEdit()">Cancel</button>
+    </div>` : `
     <div style="display:flex;align-items:center;gap:12px;width:100%;flex-wrap:wrap;">
       <img src="${escapeHtml(resolvePhotoUrl(d.photoUrl))}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:var(--cream-100);flex-shrink:0;" onerror="this.style.opacity='0.2'">
-      <div class="rmain"><div class="t1">${escapeHtml(d.name)}</div><div class="t2">${Number(d.price||0)} EGP${sidesTag}</div></div>
+      <div class="rmain"><div class="t1">${escapeHtml(d.name)}</div><div class="t2">${Number(d.price||0)} EGP${sidesTag}${noteTag}</div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="btn-ghost-dark" onclick="editItem('${d.id}')">Edit</button>
+        <button class="btn-ghost-dark" onclick="toggleItemEdit('${d.id}')">Edit</button>
         <button class="btn-ghost-dark" onclick="toggleItemSidesConfig('${d.id}')">${isExpanded ? 'Close' : 'Sides'}</button>
         <button class="btn-ghost-dark" ${idx===0?'disabled':''} onclick="moveItem('${d.id}','${d.categoryId}',-1)">↑</button>
         <button class="btn-ghost-dark" ${idx===total-1?'disabled':''} onclick="moveItem('${d.id}','${d.categoryId}',1)">↓</button>
         <button class="btn-danger" onclick="deleteItem('${d.id}')">Delete</button>
       </div>
-    </div>
+    </div>`;
+  return `
+  <div class="row-item" style="flex-direction:column;align-items:stretch;">
+    ${topRow}
     ${isExpanded ? renderItemSidesConfig(d) : ''}
   </div>`;
 }
 
+function toggleItemEdit(itemId){
+  editingItemId = editingItemId === itemId ? null : itemId;
+  if(editingItemId) expandedSidesItemId = null;
+  renderAdminMenuTab();
+}
+function cancelItemEdit(){
+  editingItemId = null;
+  renderAdminMenuTab();
+}
+function saveItemEdit(itemId){
+  const nameEl = document.getElementById('editItemName-'+itemId);
+  const priceEl = document.getElementById('editItemPrice-'+itemId);
+  const photoEl = document.getElementById('editItemPhoto-'+itemId);
+  if(!nameEl) return;
+  const name = nameEl.value.trim();
+  if(!name){ alert('Enter a dish name.'); return; }
+  db.collection('menuItems').doc(itemId).update({
+    name,
+    price: Number(priceEl.value) || 0,
+    photoUrl: photoEl.value.trim()
+  }).then(() => { editingItemId = null; renderAdminMenuTab(); })
+    .catch(err => alert(err.message));
+}
+
 function toggleItemSidesConfig(itemId){
   expandedSidesItemId = expandedSidesItemId === itemId ? null : itemId;
+  if(expandedSidesItemId) editingItemId = null;
   renderAdminMenuTab();
 }
 
@@ -1261,6 +1316,10 @@ function renderItemSidesConfig(d){
       <label>Maximum sides a guest can choose</label>
       <input id="sidesMax-${d.id}" type="number" min="1" max="20" value="${d.maxSides || 1}" style="width:110px;padding:7px 10px;border:1.5px solid var(--line);border-radius:6px;">
     </div>
+    <div class="field" style="margin:0 0 12px;">
+      <label>Included free (the rest are charged at their listed price)</label>
+      <input id="sidesFree-${d.id}" type="number" min="0" max="20" value="${d.includedFreeSides || 0}" style="width:110px;padding:7px 10px;border:1.5px solid var(--line);border-radius:6px;">
+    </div>
     <div style="font-size:11px;font-weight:700;color:var(--wine-900);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;">Import from side dishes list</div>
     ${optionsHtml}
     <button class="btn-ghost-dark" style="margin-top:12px;" onclick="saveItemSidesConfig('${d.id}')">Save sides settings</button>
@@ -1271,15 +1330,17 @@ function renderItemSidesConfig(d){
 function saveItemSidesConfig(itemId){
   const enabledEl = document.getElementById('sidesEnabled-'+itemId);
   const maxEl = document.getElementById('sidesMax-'+itemId);
-  if(!enabledEl || !maxEl) return;
+  const freeEl = document.getElementById('sidesFree-'+itemId);
+  if(!enabledEl || !maxEl || !freeEl) return;
   const sidesEnabled = enabledEl.checked;
   const maxSides = Number(maxEl.value) || 1;
+  const includedFreeSides = Math.max(0, Number(freeEl.value) || 0);
   const sideDishIds = sideDishes.filter(s => {
     const box = document.getElementById('sideSel-'+itemId+'-'+s.id);
     return box && box.checked;
   }).map(s => s.id);
   const msg = document.getElementById('sidesConfigMsg-'+itemId);
-  db.collection('menuItems').doc(itemId).update({ sidesEnabled, maxSides, sideDishIds })
+  db.collection('menuItems').doc(itemId).update({ sidesEnabled, maxSides, includedFreeSides, sideDishIds })
     .then(() => { if(msg){ msg.textContent = 'Saved.'; msg.className = 'msg ok'; } })
     .catch(err => { if(msg){ msg.textContent = err.message; msg.className = 'msg err'; } });
 }
@@ -1336,11 +1397,23 @@ async function addCategory(menuKey){
     nameInp.value = ''; photoInp.value = ''; msg.textContent = 'Added.'; msg.className = 'msg ok';
   }catch(err){ msg.textContent = err.message; msg.className = 'msg err'; }
 }
-function editCategory(id){
-  const c = categories.find(x => x.id === id); if(!c) return;
-  const name = prompt('Category name:', c.name); if(name === null) return;
-  const photoUrl = prompt('Photo filename (e.g. eggs.jpg) or full URL — leave blank for none:', c.photoUrl || '');
-  db.collection('menuCategories').doc(id).update({ name: name.trim() || c.name, photoUrl: (photoUrl||'').trim() });
+function toggleCategoryEdit(id){
+  editingCategoryId = editingCategoryId === id ? null : id;
+  renderAdminMenuTab();
+}
+function cancelCategoryEdit(){
+  editingCategoryId = null;
+  renderAdminMenuTab();
+}
+function saveCategoryEdit(id){
+  const nameEl = document.getElementById('editCatName-'+id);
+  const photoEl = document.getElementById('editCatPhoto-'+id);
+  if(!nameEl) return;
+  const name = nameEl.value.trim();
+  if(!name){ alert('Enter a category name.'); return; }
+  db.collection('menuCategories').doc(id).update({ name, photoUrl: photoEl.value.trim() })
+    .then(() => { editingCategoryId = null; renderAdminMenuTab(); })
+    .catch(err => alert(err.message));
 }
 function deleteCategory(id){
   const dishCount = items.filter(i => i.categoryId === id).length;
@@ -1365,21 +1438,15 @@ async function addItem(categoryId){
   const nameInp = document.getElementById('newItemName-'+categoryId);
   const priceInp = document.getElementById('newItemPrice-'+categoryId);
   const photoInp = document.getElementById('newItemPhoto-'+categoryId);
+  const noteInp = document.getElementById('newItemNote-'+categoryId);
   const name = nameInp.value.trim();
   if(!name) return;
   const price = Number(priceInp.value) || 0;
   const order = items.filter(i => i.categoryId === categoryId).length;
   try{
-    await db.collection('menuItems').add({ categoryId, name, price, photoUrl: photoInp.value.trim(), order });
-    nameInp.value = ''; priceInp.value = ''; photoInp.value = '';
+    await db.collection('menuItems').add({ categoryId, name, price, photoUrl: photoInp.value.trim(), note: noteInp.value.trim(), order });
+    nameInp.value = ''; priceInp.value = ''; photoInp.value = ''; noteInp.value = '';
   }catch(err){ alert(err.message); }
-}
-function editItem(id){
-  const d = items.find(x => x.id === id); if(!d) return;
-  const name = prompt('Dish name:', d.name); if(name === null) return;
-  const priceStr = prompt('Price (EGP):', d.price); if(priceStr === null) return;
-  const photoUrl = prompt('Photo filename (e.g. omelette.jpg) or full URL — leave blank for none:', d.photoUrl || '');
-  db.collection('menuItems').doc(id).update({ name: name.trim() || d.name, price: Number(priceStr) || 0, photoUrl: (photoUrl||'').trim() });
 }
 function deleteItem(id){
   if(!confirm('Delete this dish?')) return;
