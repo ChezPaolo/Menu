@@ -200,11 +200,7 @@
 <div class="hero" id="top">
   <img id="heroLogo" src="" alt="" style="display:none;">
   <div id="heroNameFallback"></div>
-  <div class="menu-launch-stack">
-    <button class="btn btn-gold" onclick="openMenu('breakfast')">Breakfast Menu</button>
-    <button class="btn btn-ghost" onclick="openMenu('main')">Main Menu</button>
-    <button class="btn btn-ghost" onclick="openMenu('beverage')">Beverage Menu</button>
-  </div>
+  <div class="menu-launch-stack" id="menuLaunchStack"></div>
   <div class="hero-social-row" id="heroSocialRow"></div>
 </div>
 
@@ -227,11 +223,8 @@
     </div>
     <div>
       <h4>Quick Links</h4>
-      <ul class="footer-links">
+      <ul class="footer-links" id="footerMenuLinks">
         <li><a href="#top">Home</a></li>
-        <li><a href="#" onclick="openMenu('breakfast');return false;">Breakfast Menu</a></li>
-        <li><a href="#" onclick="openMenu('main');return false;">Main Menu</a></li>
-        <li><a href="#" onclick="openMenu('beverage');return false;">Beverage Menu</a></li>
       </ul>
     </div>
     <div>
@@ -256,10 +249,14 @@
   </div>
   <div class="cart-drawer-body" id="cartItemsList"></div>
   <div class="cart-drawer-foot">
+    <div class="field" style="margin-bottom:12px;">
+      <label>Note for the restaurant (optional)</label>
+      <textarea id="orderNote" rows="2" placeholder="e.g. no onions, extra spicy..." style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:13.5px;resize:vertical;background:var(--cream-50);"></textarea>
+    </div>
     <div class="cart-total-row"><span>Total</span><span id="cartTotal">0 EGP</span></div>
     <div id="orderTypeButtons" style="display:flex;flex-direction:column;gap:8px;">
       <button class="btn btn-ghost btn-block" onclick="selectOrderType('table')">Order for your table</button>
-      <button class="btn btn-ghost btn-block" onclick="selectOrderType('togo')">Order to go</button>
+      <button class="btn btn-ghost btn-block" onclick="selectOrderType('togo')">Order for pickup</button>
       <button class="btn btn-ghost btn-block" onclick="selectOrderType('delivery')">Order Delivery</button>
     </div>
     <div id="orderDetailsForm" style="display:none;">
@@ -298,6 +295,7 @@
   </div>
   <div class="admin-tabs" id="adminTabsNav">
     <button data-tab="menu" class="active">Menu</button>
+    <button data-tab="sides">Side Dishes</button>
     <button data-tab="orders">Orders</button>
     <button data-tab="settings">Settings</button>
   </div>
@@ -309,6 +307,23 @@
         upload the photo to a host (GitHub, Imgur, Firebase Storage) and paste the direct image link here.
       </p>
       <div id="adminMenuContainer"></div>
+    </div>
+
+    <!-- SIDE DISHES -->
+    <div id="admtab-sides" class="admtabpanel" style="display:none;">
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:-4px 0 4px;">
+        Build a reusable list of side dishes here (e.g. Fries, Salad, Rice). Then, on any dish in the Menu tab, turn on
+        "side dishes" for it and choose which ones from this list apply — no need to re-type them for every dish.
+      </p>
+      <div class="panel">
+        <div id="adminSidesContainer"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+          <input id="newSideName" placeholder="Side dish name (e.g. Fries)" style="flex:1;min-width:140px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
+          <input id="newSidePrice" type="number" min="0" placeholder="Extra price (EGP, optional)" style="width:180px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
+          <button class="btn-ghost-dark" onclick="addSideDish()">+ Add side dish</button>
+        </div>
+        <div class="msg" id="sidesTabMsg"></div>
+      </div>
     </div>
 
     <!-- ORDERS -->
@@ -462,18 +477,27 @@ let ordersUnsub = null;
 let settings = {};
 let categories = [];
 let items = [];
+let customMenus = [];
+let sideDishes = [];
+let expandedSidesItemId = null;
 let cart = [];
 try{ cart = JSON.parse(localStorage.getItem('cart') || '[]'); }catch(e){ cart = []; }
 let currentMenuKey = null;
 let currentCategoryId = null;
 let callmebotSettings = { enabled:false, phone:'', apikey:'' };
 
-const MENU_KEYS = [
+const DEFAULT_MENUS = [
   { key:'breakfast', label:'Breakfast Menu' },
   { key:'main', label:'Main Menu' },
   { key:'beverage', label:'Beverage Menu' }
 ];
-const MENU_LABELS = { breakfast:'Breakfast Menu', main:'Main Menu', beverage:'Beverage Menu' };
+function getAllMenus(){
+  return DEFAULT_MENUS.concat(customMenus.map(m => ({ key:m.id, label:m.name, custom:true })));
+}
+function menuLabel(key){
+  const m = getAllMenus().find(x => x.key === key);
+  return m ? m.label : 'Menu';
+}
 
 document.getElementById('footerYear').textContent = new Date().getFullYear();
 
@@ -702,6 +726,36 @@ db.collection('menuItems').orderBy('order').onSnapshot(snap => {
   if(currentAdminUser) renderAdminMenuTab();
 }, err => console.error(err));
 
+db.collection('menus').orderBy('order').onSnapshot(snap => {
+  customMenus = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+  renderMenuLaunchButtons();
+  renderFooterMenuLinks();
+  renderMenuBrowser();
+  if(currentAdminUser) renderAdminMenuTab();
+}, err => console.error(err));
+
+db.collection('sideDishes').orderBy('order').onSnapshot(snap => {
+  sideDishes = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+  renderMenuBrowser();
+  if(currentAdminUser){ renderAdminSidesTab(); renderAdminMenuTab(); }
+}, err => console.error(err));
+
+function renderMenuLaunchButtons(){
+  const stack = document.getElementById('menuLaunchStack');
+  if(!stack) return;
+  const menus = getAllMenus();
+  stack.innerHTML = menus.map((m, i) =>
+    `<button class="btn ${i === 0 ? 'btn-gold' : 'btn-ghost'}" onclick="openMenu('${m.key}')">${escapeHtml(m.label)}</button>`
+  ).join('');
+}
+function renderFooterMenuLinks(){
+  const list = document.getElementById('footerMenuLinks');
+  if(!list) return;
+  list.innerHTML = '<li><a href="#top">Home</a></li>' + getAllMenus().map(m =>
+    `<li><a href="#" onclick="openMenu('${m.key}');return false;">${escapeHtml(m.label)}</a></li>`
+  ).join('');
+}
+
 function openMenu(key){
   currentMenuKey = key;
   currentCategoryId = null;
@@ -730,7 +784,7 @@ function renderMenuBrowser(){
     const cats = categories.filter(c => c.menu === currentMenuKey);
     headEl.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
-        <div><h2 class="section-title" style="margin-bottom:2px;">${escapeHtml(MENU_LABELS[currentMenuKey])}</h2><p class="section-sub" style="margin:0;">Choose a category</p></div>
+        <div><h2 class="section-title" style="margin-bottom:2px;">${escapeHtml(menuLabel(currentMenuKey))}</h2><p class="section-sub" style="margin:0;">Choose a category</p></div>
         <button class="btn-ghost-dark" onclick="backToHome()">← Back</button>
       </div>`;
     bodyEl.innerHTML = cats.length === 0
@@ -744,21 +798,84 @@ function renderMenuBrowser(){
     const dishes = items.filter(i => i.categoryId === currentCategoryId);
     headEl.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
-        <div><h2 class="section-title" style="margin-bottom:2px;">${escapeHtml(cat ? cat.name : '')}</h2><p class="section-sub" style="margin:0;">${escapeHtml(MENU_LABELS[currentMenuKey])}</p></div>
+        <div><h2 class="section-title" style="margin-bottom:2px;">${escapeHtml(cat ? cat.name : '')}</h2><p class="section-sub" style="margin:0;">${escapeHtml(menuLabel(currentMenuKey))}</p></div>
         <button class="btn-ghost-dark" onclick="backToCategories()">← Categories</button>
       </div>`;
     bodyEl.innerHTML = dishes.length === 0
       ? '<div class="empty-state">No dishes yet.</div>'
-      : `<div class="dish-grid">${dishes.map(d => `
+      : `<div class="dish-grid">${dishes.map(d => {
+          const hasSides = d.sidesEnabled && (d.sideDishIds||[]).length > 0;
+          const orderControl = !settings.orderingEnabled ? '' : hasSides
+            ? `<button class="btn btn-gold btn-sm btn-block" style="margin-top:8px;" onclick="toggleSidesPanel('${d.id}')">Choose &amp; add</button>
+               <div id="sidesPanel-${d.id}" style="display:none;margin-top:8px;text-align:left;"></div>`
+            : `<button class="btn btn-gold btn-sm btn-block" style="margin-top:8px;" onclick="addToCart('${d.id}')">+ Add to order</button>`;
+          return `
           <div class="dish-card">
             ${resolvePhotoUrl(d.photoUrl) ? `<img class="dish-photo" src="${escapeHtml(resolvePhotoUrl(d.photoUrl))}" alt="${escapeHtml(d.name)}">` : `<div class="dish-photo-empty">No photo</div>`}
             <div class="dish-body">
               <div class="mname">${escapeHtml(d.name)}</div>
               <div class="mprice">${Number(d.price||0)} EGP</div>
-              ${settings.orderingEnabled ? `<button class="btn btn-gold btn-sm btn-block" style="margin-top:8px;" onclick="addToCart('${d.id}')">+ Add to order</button>` : ''}
+              ${orderControl}
             </div>
-          </div>`).join('')}</div>`;
+          </div>`;
+        }).join('')}</div>`;
   }
+}
+
+function toggleSidesPanel(itemId){
+  const panel = document.getElementById('sidesPanel-'+itemId);
+  if(!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  document.querySelectorAll('[id^="sidesPanel-"]').forEach(p => { p.style.display = 'none'; p.innerHTML = ''; });
+  if(isOpen) return;
+  const d = items.find(i => i.id === itemId);
+  if(!d) return;
+  const max = d.maxSides || 1;
+  const options = (d.sideDishIds || []).map(sid => sideDishes.find(s => s.id === sid)).filter(Boolean);
+  panel.dataset.max = max;
+  panel.innerHTML = `
+    <div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px;">Choose up to ${max} side${max>1?'s':''}:</div>
+    ${options.map(o => `
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;">
+        <input type="checkbox" class="sideOpt-${itemId}" value="${o.id}" onchange="enforceSideMax('${itemId}')">
+        <span style="flex:1;">${escapeHtml(o.name)}</span>
+        ${o.price ? `<span style="color:var(--gold-dark);font-weight:700;">+${Number(o.price)} EGP</span>` : ''}
+      </label>`).join('')}
+    <button class="btn btn-gold btn-sm btn-block" style="margin-top:8px;" onclick="addToCartWithSides('${itemId}')">Add to order</button>
+  `;
+  panel.style.display = 'block';
+}
+function enforceSideMax(itemId){
+  const panel = document.getElementById('sidesPanel-'+itemId);
+  if(!panel) return;
+  const max = Number(panel.dataset.max) || 1;
+  const boxes = Array.from(document.getElementsByClassName('sideOpt-'+itemId));
+  const checked = boxes.filter(b => b.checked);
+  if(checked.length > max){
+    checked.slice(max).forEach(b => { b.checked = false; });
+  }
+}
+function addToCartWithSides(itemId){
+  const it = items.find(i => i.id === itemId); if(!it) return;
+  const boxes = Array.from(document.getElementsByClassName('sideOpt-'+itemId)).filter(b => b.checked);
+  const chosen = boxes.map(b => sideDishes.find(s => s.id === b.value)).filter(Boolean);
+  const sidesTotal = chosen.reduce((s,c) => s + Number(c.price||0), 0);
+  const cartKey = itemId + '|' + chosen.map(c => c.id).sort().join(',');
+  const existing = cart.find(c => c.cartKey === cartKey);
+  if(existing){
+    existing.qty++;
+  } else {
+    cart.push({
+      cartKey,
+      id: itemId,
+      name: it.name + (chosen.length ? ` (${chosen.map(c => c.name).join(', ')})` : ''),
+      price: Number(it.price||0) + sidesTotal,
+      qty: 1
+    });
+  }
+  saveCart();
+  toggleSidesPanel(itemId);
+  openCart();
 }
 
 /* =========================================================================
@@ -767,15 +884,16 @@ function renderMenuBrowser(){
 function saveCart(){ localStorage.setItem('cart', JSON.stringify(cart)); renderCart(); }
 function addToCart(itemId){
   const it = items.find(i => i.id === itemId); if(!it) return;
-  const existing = cart.find(c => c.id === itemId);
-  if(existing) existing.qty++; else cart.push({ id: itemId, name: it.name, price: Number(it.price||0), qty: 1 });
+  const cartKey = itemId;
+  const existing = cart.find(c => c.cartKey === cartKey);
+  if(existing) existing.qty++; else cart.push({ cartKey, id: itemId, name: it.name, price: Number(it.price||0), qty: 1 });
   saveCart();
   openCart();
 }
-function changeQty(itemId, delta){
-  const c = cart.find(c => c.id === itemId); if(!c) return;
+function changeQty(cartKey, delta){
+  const c = cart.find(c => c.cartKey === cartKey); if(!c) return;
   c.qty += delta;
-  if(c.qty <= 0) cart = cart.filter(x => x.id !== itemId);
+  if(c.qty <= 0) cart = cart.filter(x => x.cartKey !== cartKey);
   saveCart();
 }
 function cartTotal(){ return cart.reduce((s,c) => s + c.price*c.qty, 0); }
@@ -791,8 +909,8 @@ function renderCart(){
       <div class="row-item">
         <div class="rmain"><div class="t1">${escapeHtml(c.name)}</div><div class="t2">${c.price} EGP × ${c.qty}</div></div>
         <div style="display:flex;align-items:center;gap:6px;">
-          <button class="btn-ghost-dark" onclick="changeQty('${c.id}',-1)">−</button>
-          <button class="btn-ghost-dark" onclick="changeQty('${c.id}',1)">+</button>
+          <button class="btn-ghost-dark" onclick="changeQty('${c.cartKey}',-1)">−</button>
+          <button class="btn-ghost-dark" onclick="changeQty('${c.cartKey}',1)">+</button>
         </div>
       </div>`).join('');
   document.getElementById('cartTotal').textContent = cartTotal() + ' EGP';
@@ -802,11 +920,13 @@ function closeCart(){
   document.getElementById('cartDrawer').classList.remove('show');
   document.getElementById('cartBackdrop').classList.remove('show');
   cancelOrderType();
+  const noteEl = document.getElementById('orderNote');
+  if(noteEl) noteEl.value = '';
 }
 renderCart();
 
 let selectedOrderType = null;
-const ORDER_TYPE_LABELS = { table: 'Order for your table', togo: 'Order to go', delivery: 'Order Delivery' };
+const ORDER_TYPE_LABELS = { table: 'Order for your table', togo: 'Order for pickup', delivery: 'Order Delivery' };
 
 function selectOrderType(type){
   if(cart.length === 0) return;
@@ -865,8 +985,9 @@ document.getElementById('confirmSendOrderBtn').onclick = async () => {
     details['Name'] = name; details['Phone'] = phone; details['Address'] = address;
   }
 
+  const note = document.getElementById('orderNote').value.trim();
   const lines = cart.map(c => `• ${c.name} x${c.qty} — ${c.price*c.qty} EGP`).join('\n');
-  const text = `${ORDER_TYPE_LABELS[selectedOrderType]}\n${detailsLines.join('\n')}\n\nOrder:\n${lines}\nTotal: ${cartTotal()} EGP`;
+  const text = `${ORDER_TYPE_LABELS[selectedOrderType]}\n${detailsLines.join('\n')}${note ? `\nNote: ${note}` : ''}\n\nOrder:\n${lines}\nTotal: ${cartTotal()} EGP`;
 
   const btn = document.getElementById('confirmSendOrderBtn');
   btn.disabled = true; btn.textContent = 'Sending…';
@@ -875,6 +996,7 @@ document.getElementById('confirmSendOrderBtn').onclick = async () => {
     await db.collection('orders').add({
       type: selectedOrderType,
       details,
+      note,
       items: cart.map(c => ({ name: c.name, price: c.price, qty: c.qty })),
       total: cartTotal(),
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -916,12 +1038,13 @@ function renderAdminOrderCard(o){
   const details = o.details || {};
   const detailLines = Object.keys(details).map(k => `<div class="t2">${escapeHtml(k)}: ${escapeHtml(details[k])}</div>`).join('');
   const itemLines = (o.items || []).map(i => `<div class="t2">${escapeHtml(i.name)} × ${i.qty} — ${i.price * i.qty} EGP</div>`).join('');
+  const noteHtml = o.note ? `<div class="t2" style="margin-top:4px;font-style:italic;">Note: ${escapeHtml(o.note)}</div>` : '';
   let timeStr = '';
   if(o.createdAt && typeof o.createdAt.toDate === 'function'){ timeStr = o.createdAt.toDate().toLocaleString(); }
   return `
   <div class="panel" style="margin-bottom:14px;">
     <div class="panel-head"><h2>${escapeHtml(typeLabel)}</h2><span style="font-size:12px;color:var(--ink-soft);">${escapeHtml(timeStr)}</span></div>
-    <div style="margin-bottom:8px;">${detailLines}</div>
+    <div style="margin-bottom:8px;">${detailLines}${noteHtml}</div>
     <div style="padding-top:8px;border-top:1px dashed var(--line);">${itemLines}</div>
     <div style="margin-top:10px;font-weight:800;color:var(--wine-900);font-size:14.5px;">Total: ${o.total || 0} EGP</div>
     <button class="btn-danger" style="margin-top:12px;" onclick="deleteOrder('${o.id}')">Delete</button>
@@ -996,6 +1119,7 @@ function switchAdminTab(tab){
   document.getElementById('admtab-' + tab).style.display = 'block';
   document.querySelectorAll('#adminTabsNav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   if(tab === 'menu') renderAdminMenuTab();
+  if(tab === 'sides') renderAdminSidesTab();
   if(tab === 'orders') renderAdminOrdersTab();
   if(tab === 'settings') fillAdminSettingsForm();
 }
@@ -1006,11 +1130,28 @@ function switchAdminTab(tab){
 function renderAdminMenuTab(){
   const container = document.getElementById('adminMenuContainer');
   if(!container) return;
-  container.innerHTML = MENU_KEYS.map(m => {
+  const menus = getAllMenus();
+  const addMenuHtml = `
+    <div class="panel">
+      <div class="panel-head"><h2>Add a menu</h2></div>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-6px;margin-bottom:12px;">
+        Breakfast, Main, and Beverage are always available. Add extra menus here — e.g. "Lunch Specials" or "Kids Menu" —
+        and a button for it will appear on the homepage automatically.
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input id="newMenuName" placeholder="Menu name (e.g. Lunch Specials)" style="flex:1;min-width:180px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
+        <button class="btn-ghost-dark" onclick="addMenu()">+ Add menu</button>
+      </div>
+      <div class="msg" id="addMenuMsg"></div>
+    </div>`;
+  container.innerHTML = addMenuHtml + menus.map(m => {
     const cats = categories.filter(c => c.menu === m.key).sort((a,b) => (a.order||0)-(b.order||0));
     return `
     <div class="panel">
-      <div class="panel-head"><h2>${m.label}</h2></div>
+      <div class="panel-head">
+        <h2>${escapeHtml(m.label)}</h2>
+        ${m.custom ? `<button class="btn-danger" onclick="deleteMenu('${m.key}')">Delete menu</button>` : ''}
+      </div>
       <div>
         ${cats.length === 0 ? '<div class="empty-state">No categories yet — add one below.</div>' : cats.map((c,idx) => renderAdminCategoryRow(c, idx, cats.length)).join('')}
       </div>
@@ -1022,6 +1163,31 @@ function renderAdminMenuTab(){
       <div class="msg" id="catMsg-${m.key}"></div>
     </div>`;
   }).join('');
+}
+
+async function addMenu(){
+  const nameInp = document.getElementById('newMenuName');
+  const name = nameInp.value.trim();
+  const msg = document.getElementById('addMenuMsg');
+  if(!name){ msg.textContent = 'Enter a menu name.'; msg.className = 'msg err'; return; }
+  const order = customMenus.length;
+  try{
+    await db.collection('menus').add({ name, order });
+    nameInp.value = ''; msg.textContent = 'Added.'; msg.className = 'msg ok';
+  }catch(err){ msg.textContent = err.message; msg.className = 'msg err'; }
+}
+function deleteMenu(menuId){
+  const cats = categories.filter(c => c.menu === menuId);
+  const dishCount = items.filter(i => cats.some(c => c.id === i.categoryId)).length;
+  if(!confirm(`Delete this menu${cats.length ? `, its ${cats.length} categor${cats.length===1?'y':'ies'} and ${dishCount} dish(es)` : ''}?`)) return;
+  const batch = db.batch();
+  batch.delete(db.collection('menus').doc(menuId));
+  cats.forEach(c => {
+    batch.delete(db.collection('menuCategories').doc(c.id));
+    items.filter(i => i.categoryId === c.id).forEach(i => batch.delete(db.collection('menuItems').doc(i.id)));
+  });
+  batch.commit();
+  if(currentMenuKey === menuId){ backToHome(); }
 }
 
 function renderAdminCategoryRow(c, idx, total){
@@ -1051,17 +1217,111 @@ function renderAdminCategoryRow(c, idx, total){
 }
 
 function renderAdminItemRow(d, idx, total){
+  const isExpanded = expandedSidesItemId === d.id;
+  const sidesTag = d.sidesEnabled ? ` • Sides on (max ${d.maxSides||1})` : '';
   return `
-  <div class="row-item">
-    <img src="${escapeHtml(resolvePhotoUrl(d.photoUrl))}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:var(--cream-100);" onerror="this.style.opacity='0.2'">
-    <div class="rmain"><div class="t1">${escapeHtml(d.name)}</div><div class="t2">${Number(d.price||0)} EGP</div></div>
-    <div style="display:flex;gap:6px;">
-      <button class="btn-ghost-dark" onclick="editItem('${d.id}')">Edit</button>
-      <button class="btn-ghost-dark" ${idx===0?'disabled':''} onclick="moveItem('${d.id}','${d.categoryId}',-1)">↑</button>
-      <button class="btn-ghost-dark" ${idx===total-1?'disabled':''} onclick="moveItem('${d.id}','${d.categoryId}',1)">↓</button>
-      <button class="btn-danger" onclick="deleteItem('${d.id}')">Delete</button>
+  <div class="row-item" style="flex-direction:column;align-items:stretch;">
+    <div style="display:flex;align-items:center;gap:12px;width:100%;flex-wrap:wrap;">
+      <img src="${escapeHtml(resolvePhotoUrl(d.photoUrl))}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:var(--cream-100);flex-shrink:0;" onerror="this.style.opacity='0.2'">
+      <div class="rmain"><div class="t1">${escapeHtml(d.name)}</div><div class="t2">${Number(d.price||0)} EGP${sidesTag}</div></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn-ghost-dark" onclick="editItem('${d.id}')">Edit</button>
+        <button class="btn-ghost-dark" onclick="toggleItemSidesConfig('${d.id}')">${isExpanded ? 'Close' : 'Sides'}</button>
+        <button class="btn-ghost-dark" ${idx===0?'disabled':''} onclick="moveItem('${d.id}','${d.categoryId}',-1)">↑</button>
+        <button class="btn-ghost-dark" ${idx===total-1?'disabled':''} onclick="moveItem('${d.id}','${d.categoryId}',1)">↓</button>
+        <button class="btn-danger" onclick="deleteItem('${d.id}')">Delete</button>
+      </div>
     </div>
+    ${isExpanded ? renderItemSidesConfig(d) : ''}
   </div>`;
+}
+
+function toggleItemSidesConfig(itemId){
+  expandedSidesItemId = expandedSidesItemId === itemId ? null : itemId;
+  renderAdminMenuTab();
+}
+
+function renderItemSidesConfig(d){
+  const selected = new Set(d.sideDishIds || []);
+  const optionsHtml = sideDishes.length === 0
+    ? '<div style="font-size:12.5px;color:var(--ink-soft);">No side dishes created yet — add some in the Side Dishes tab.</div>'
+    : sideDishes.map(s => `
+        <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;">
+          <input type="checkbox" id="sideSel-${d.id}-${s.id}" ${selected.has(s.id) ? 'checked' : ''}>
+          <span style="flex:1;">${escapeHtml(s.name)}</span>
+          ${s.price ? `<span style="color:var(--gold-dark);font-weight:700;">+${Number(s.price)} EGP</span>` : ''}
+        </label>`).join('');
+  return `
+  <div style="margin-top:10px;padding:12px;border-top:1px dashed var(--line);background:var(--cream-50);border-radius:8px;">
+    <div class="toggle-row" style="border-bottom:none;padding:2px 0 8px;">
+      <div class="tt" style="font-size:13.5px;">Offer side dishes for this dish</div>
+      <label class="switch"><input type="checkbox" id="sidesEnabled-${d.id}" ${d.sidesEnabled ? 'checked' : ''}><span class="slider"></span></label>
+    </div>
+    <div class="field" style="margin:8px 0 12px;">
+      <label>Maximum sides a guest can choose</label>
+      <input id="sidesMax-${d.id}" type="number" min="1" max="20" value="${d.maxSides || 1}" style="width:110px;padding:7px 10px;border:1.5px solid var(--line);border-radius:6px;">
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--wine-900);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;">Import from side dishes list</div>
+    ${optionsHtml}
+    <button class="btn-ghost-dark" style="margin-top:12px;" onclick="saveItemSidesConfig('${d.id}')">Save sides settings</button>
+    <div class="msg" id="sidesConfigMsg-${d.id}"></div>
+  </div>`;
+}
+
+function saveItemSidesConfig(itemId){
+  const enabledEl = document.getElementById('sidesEnabled-'+itemId);
+  const maxEl = document.getElementById('sidesMax-'+itemId);
+  if(!enabledEl || !maxEl) return;
+  const sidesEnabled = enabledEl.checked;
+  const maxSides = Number(maxEl.value) || 1;
+  const sideDishIds = sideDishes.filter(s => {
+    const box = document.getElementById('sideSel-'+itemId+'-'+s.id);
+    return box && box.checked;
+  }).map(s => s.id);
+  const msg = document.getElementById('sidesConfigMsg-'+itemId);
+  db.collection('menuItems').doc(itemId).update({ sidesEnabled, maxSides, sideDishIds })
+    .then(() => { if(msg){ msg.textContent = 'Saved.'; msg.className = 'msg ok'; } })
+    .catch(err => { if(msg){ msg.textContent = err.message; msg.className = 'msg err'; } });
+}
+
+/* =========================================================================
+   ADMIN — side dishes (reusable list)
+   ========================================================================= */
+function renderAdminSidesTab(){
+  const container = document.getElementById('adminSidesContainer');
+  if(!container) return;
+  container.innerHTML = sideDishes.length === 0
+    ? '<div class="empty-state">No side dishes yet — add one below.</div>'
+    : sideDishes.map(s => `
+      <div class="row-item">
+        <div class="rmain"><div class="t1">${escapeHtml(s.name)}</div><div class="t2">${s.price ? Number(s.price) + ' EGP extra' : 'No extra charge'}</div></div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn-ghost-dark" onclick="editSideDish('${s.id}')">Edit</button>
+          <button class="btn-danger" onclick="deleteSideDish('${s.id}')">Delete</button>
+        </div>
+      </div>`).join('');
+}
+async function addSideDish(){
+  const nameInp = document.getElementById('newSideName');
+  const priceInp = document.getElementById('newSidePrice');
+  const name = nameInp.value.trim();
+  const msg = document.getElementById('sidesTabMsg');
+  if(!name){ msg.textContent = 'Enter a name.'; msg.className = 'msg err'; return; }
+  const order = sideDishes.length;
+  try{
+    await db.collection('sideDishes').add({ name, price: Number(priceInp.value) || 0, order });
+    nameInp.value = ''; priceInp.value = ''; msg.textContent = 'Added.'; msg.className = 'msg ok';
+  }catch(err){ msg.textContent = err.message; msg.className = 'msg err'; }
+}
+function editSideDish(id){
+  const s = sideDishes.find(x => x.id === id); if(!s) return;
+  const name = prompt('Side dish name:', s.name); if(name === null) return;
+  const priceStr = prompt('Extra price (EGP, 0 for none):', s.price || 0); if(priceStr === null) return;
+  db.collection('sideDishes').doc(id).update({ name: name.trim() || s.name, price: Number(priceStr) || 0 });
+}
+function deleteSideDish(id){
+  if(!confirm('Delete this side dish? It will be removed from any dishes offering it.')) return;
+  db.collection('sideDishes').doc(id).delete();
 }
 
 async function addCategory(menuKey){
