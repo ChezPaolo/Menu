@@ -838,18 +838,23 @@ function toggleSidesPanel(itemId){
   const free = d.includedFreeSides || 0;
   const options = (d.sideDishIds || []).map(sid => sideDishes.find(s => s.id === sid)).filter(Boolean);
   panel.dataset.max = max;
+  panel.dataset.free = free;
   const freeNote = free > 0 ? ` — first ${free} free, extra ${free===1?'is':'are'} charged` : '';
   panel.innerHTML = `
     <div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px;">Choose up to ${max} side${max>1?'s':''}${freeNote}:</div>
     ${options.map(o => `
       <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;">
-        <input type="checkbox" class="sideOpt-${itemId}" value="${o.id}" onchange="enforceSideMax('${itemId}')">
+        <input type="checkbox" class="sideOpt-${itemId}" value="${o.id}" onchange="onSideCheckboxChange('${itemId}')">
         <span style="flex:1;">${escapeHtml(o.name)}</span>
-        ${o.price ? `<span style="color:var(--gold-dark);font-weight:700;">+${Number(o.price)} EGP</span>` : ''}
+        ${o.price ? `<span id="sidePriceTag-${itemId}-${o.id}" style="display:none;color:var(--gold-dark);font-weight:700;">+${Number(o.price)} EGP</span>` : ''}
       </label>`).join('')}
     <button class="btn btn-gold btn-sm btn-block" style="margin-top:8px;" onclick="addToCartWithSides('${itemId}')">Add to order</button>
   `;
   panel.style.display = 'block';
+}
+function onSideCheckboxChange(itemId){
+  enforceSideMax(itemId);
+  updateSidePriceLabels(itemId);
 }
 function enforceSideMax(itemId){
   const panel = document.getElementById('sidesPanel-'+itemId);
@@ -860,6 +865,22 @@ function enforceSideMax(itemId){
   if(checked.length > max){
     checked.slice(max).forEach(b => { b.checked = false; });
   }
+}
+function updateSidePriceLabels(itemId){
+  const panel = document.getElementById('sidesPanel-'+itemId);
+  if(!panel) return;
+  const free = Number(panel.dataset.free) || 0;
+  const boxes = Array.from(document.getElementsByClassName('sideOpt-'+itemId));
+  let checkedCount = 0;
+  boxes.forEach(b => {
+    const tag = document.getElementById('sidePriceTag-'+itemId+'-'+b.value);
+    if(b.checked){
+      checkedCount++;
+      if(tag) tag.style.display = checkedCount > free ? 'inline' : 'none';
+    } else if(tag){
+      tag.style.display = 'none';
+    }
+  });
 }
 function addToCartWithSides(itemId){
   const it = items.find(i => i.id === itemId); if(!it) return;
@@ -1279,13 +1300,15 @@ function saveItemEdit(itemId){
   const nameEl = document.getElementById('editItemName-'+itemId);
   const priceEl = document.getElementById('editItemPrice-'+itemId);
   const photoEl = document.getElementById('editItemPhoto-'+itemId);
+  const noteEl = document.getElementById('editItemNote-'+itemId);
   if(!nameEl) return;
   const name = nameEl.value.trim();
   if(!name){ alert('Enter a dish name.'); return; }
   db.collection('menuItems').doc(itemId).update({
     name,
     price: Number(priceEl.value) || 0,
-    photoUrl: photoEl.value.trim()
+    photoUrl: photoEl.value.trim(),
+    note: noteEl.value.trim()
   }).then(() => { editingItemId = null; renderAdminMenuTab(); })
     .catch(err => alert(err.message));
 }
