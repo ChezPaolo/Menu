@@ -808,17 +808,22 @@ function renderMenuBrowser(){
       ? '<div class="empty-state">No dishes yet.</div>'
       : `<div class="dish-grid">${dishes.map(d => {
           const hasSides = d.sidesEnabled && (d.sideDishIds||[]).length > 0;
-          const orderControl = !settings.orderingEnabled ? '' : hasSides
+          const hasSizes = d.sizesEnabled && (d.sizeOptions||[]).length > 0;
+          const hasChoices = hasSides || hasSizes;
+          const orderControl = !settings.orderingEnabled ? '' : hasChoices
             ? `<button class="btn btn-gold btn-sm btn-block" style="margin-top:8px;" onclick="toggleSidesPanel('${d.id}')">Choose &amp; add</button>
                <div id="sidesPanel-${d.id}" style="display:none;margin-top:8px;text-align:left;"></div>`
             : `<button class="btn btn-gold btn-sm btn-block" style="margin-top:8px;" onclick="addToCart('${d.id}')">+ Add to order</button>`;
+          const priceLabel = hasSizes
+            ? `From ${Math.min(...d.sizeOptions.map(s => Number(s.price||0)))} EGP`
+            : `${Number(d.price||0)} EGP`;
           return `
           <div class="dish-card">
             ${resolvePhotoUrl(d.photoUrl) ? `<img class="dish-photo" src="${escapeHtml(resolvePhotoUrl(d.photoUrl))}" alt="${escapeHtml(d.name)}">` : `<div class="dish-photo-empty">No photo</div>`}
             <div class="dish-body">
               <div class="mname">${escapeHtml(d.name)}</div>
               ${d.note ? `<div class="mnote">${escapeHtml(d.note)}</div>` : ''}
-              <div class="mprice">${Number(d.price||0)} EGP</div>
+              <div class="mprice">${priceLabel}</div>
               ${orderControl}
             </div>
           </div>`;
@@ -834,22 +839,42 @@ function toggleSidesPanel(itemId){
   if(isOpen) return;
   const d = items.find(i => i.id === itemId);
   if(!d) return;
-  const max = d.maxSides || 1;
-  const free = d.includedFreeSides || 0;
-  const options = (d.sideDishIds || []).map(sid => sideDishes.find(s => s.id === sid)).filter(Boolean);
-  panel.dataset.max = max;
-  panel.dataset.free = free;
-  const freeNote = free > 0 ? ` — first ${free} free, extra ${free===1?'is':'are'} charged` : '';
-  panel.innerHTML = `
-    <div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px;">Choose up to ${max} side${max>1?'s':''}${freeNote}:</div>
-    ${options.map(o => `
+
+  const hasSizes = d.sizesEnabled && (d.sizeOptions||[]).length > 0;
+  const hasSides = d.sidesEnabled && (d.sideDishIds||[]).length > 0;
+
+  let html = '';
+
+  if(hasSizes){
+    html += `<div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px;">Choose a size:</div>`;
+    html += d.sizeOptions.map((s, idx) => `
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;">
+        <input type="radio" name="sizeOpt-${itemId}" value="${idx}" ${idx===0?'checked':''}>
+        <span style="flex:1;">${escapeHtml(s.name)}</span>
+        <span style="color:var(--gold-dark);font-weight:700;">${Number(s.price||0)} EGP</span>
+      </label>`).join('');
+  }
+
+  if(hasSides){
+    const max = d.maxSides || 1;
+    const free = d.includedFreeSides || 0;
+    const options = (d.sideDishIds || []).map(sid => sideDishes.find(s => s.id === sid)).filter(Boolean);
+    panel.dataset.max = max;
+    panel.dataset.free = free;
+    const freeNote = free > 0 ? ` — first ${free} free, extra ${free===1?'is':'are'} charged` : '';
+    if(hasSizes) html += `<div style="height:1px;background:var(--line);margin:10px 0;"></div>`;
+    html += `<div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px;">Choose up to ${max} side${max>1?'s':''}${freeNote}:</div>`;
+    html += options.map(o => `
       <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;">
         <input type="checkbox" class="sideOpt-${itemId}" value="${o.id}" onchange="onSideCheckboxChange('${itemId}')">
         <span style="flex:1;">${escapeHtml(o.name)}</span>
         ${o.price ? `<span id="sidePriceTag-${itemId}-${o.id}" style="display:none;color:var(--gold-dark);font-weight:700;">+${Number(o.price)} EGP</span>` : ''}
-      </label>`).join('')}
-    <button class="btn btn-gold btn-sm btn-block" style="margin-top:8px;" onclick="addToCartWithSides('${itemId}')">Add to order</button>
-  `;
+      </label>`).join('');
+  }
+
+  html += `<button class="btn btn-gold btn-sm btn-block" style="margin-top:8px;" onclick="addToCartWithSides('${itemId}')">Add to order</button>`;
+
+  panel.innerHTML = html;
   panel.style.display = 'block';
 }
 function onSideCheckboxChange(itemId){
@@ -884,12 +909,29 @@ function updateSidePriceLabels(itemId){
 }
 function addToCartWithSides(itemId){
   const it = items.find(i => i.id === itemId); if(!it) return;
+
+  const hasSizes = it.sizesEnabled && (it.sizeOptions||[]).length > 0;
+  let basePrice = Number(it.price||0);
+  let sizeName = '';
+  if(hasSizes){
+    const radios = document.getElementsByName('sizeOpt-'+itemId);
+    const checkedRadio = Array.from(radios).find(r => r.checked);
+    const idx = checkedRadio ? Number(checkedRadio.value) : 0;
+    const opt = it.sizeOptions[idx];
+    if(opt){ basePrice = Number(opt.price||0); sizeName = opt.name; }
+  }
+
   const boxes = Array.from(document.getElementsByClassName('sideOpt-'+itemId)).filter(b => b.checked);
   const chosen = boxes.map(b => sideDishes.find(s => s.id === b.value)).filter(Boolean);
   const free = it.includedFreeSides || 0;
   const sidesTotal = chosen.reduce((sum, c, idx) => idx < free ? sum : sum + Number(c.price||0), 0);
   const sideNames = chosen.map((c, idx) => idx < free ? c.name : `${c.name} +${Number(c.price||0)} EGP`);
-  const cartKey = itemId + '|' + chosen.map(c => c.id).sort().join(',');
+
+  const namePieces = [];
+  if(sizeName) namePieces.push(sizeName);
+  namePieces.push(...sideNames);
+
+  const cartKey = itemId + '|' + sizeName + '|' + chosen.map(c => c.id).sort().join(',');
   const existing = cart.find(c => c.cartKey === cartKey);
   if(existing){
     existing.qty++;
@@ -897,8 +939,8 @@ function addToCartWithSides(itemId){
     cart.push({
       cartKey,
       id: itemId,
-      name: it.name + (sideNames.length ? ` (${sideNames.join(', ')})` : ''),
-      price: Number(it.price||0) + sidesTotal,
+      name: it.name + (namePieces.length ? ` (${namePieces.join(', ')})` : ''),
+      price: basePrice + sidesTotal,
       qty: 1
     });
   }
@@ -1259,6 +1301,7 @@ function renderAdminItemRow(d, idx, total){
   const isExpanded = expandedSidesItemId === d.id;
   const isEditing = editingItemId === d.id;
   const sidesTag = d.sidesEnabled ? ` • Sides on (max ${d.maxSides||1})` : '';
+  const sizesTag = d.sizesEnabled ? ` • Sizes on (${(d.sizeOptions||[]).length})` : '';
   const noteTag = d.note ? ` • “${d.note}”` : '';
   const topRow = isEditing ? `
     <div style="display:flex;align-items:center;gap:10px;width:100%;flex-wrap:wrap;">
@@ -1271,10 +1314,10 @@ function renderAdminItemRow(d, idx, total){
     </div>` : `
     <div style="display:flex;align-items:center;gap:12px;width:100%;flex-wrap:wrap;">
       <img src="${escapeHtml(resolvePhotoUrl(d.photoUrl))}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:var(--cream-100);flex-shrink:0;" onerror="this.style.opacity='0.2'">
-      <div class="rmain"><div class="t1">${escapeHtml(d.name)}</div><div class="t2">${Number(d.price||0)} EGP${sidesTag}${noteTag}</div></div>
+      <div class="rmain"><div class="t1">${escapeHtml(d.name)}</div><div class="t2">${Number(d.price||0)} EGP${sizesTag}${sidesTag}${noteTag}</div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn-ghost-dark" onclick="toggleItemEdit('${d.id}')">Edit</button>
-        <button class="btn-ghost-dark" onclick="toggleItemSidesConfig('${d.id}')">${isExpanded ? 'Close' : 'Sides'}</button>
+        <button class="btn-ghost-dark" onclick="toggleItemSidesConfig('${d.id}')">${isExpanded ? 'Close' : 'Options'}</button>
         <button class="btn-ghost-dark" ${idx===0?'disabled':''} onclick="moveItem('${d.id}','${d.categoryId}',-1)">↑</button>
         <button class="btn-ghost-dark" ${idx===total-1?'disabled':''} onclick="moveItem('${d.id}','${d.categoryId}',1)">↓</button>
         <button class="btn-danger" onclick="deleteItem('${d.id}')">Delete</button>
@@ -1329,8 +1372,34 @@ function renderItemSidesConfig(d){
           <span style="flex:1;">${escapeHtml(s.name)}</span>
           ${s.price ? `<span style="color:var(--gold-dark);font-weight:700;">+${Number(s.price)} EGP</span>` : ''}
         </label>`).join('');
+
+  const sizeOptions = d.sizeOptions || [];
+  const sizesRowsHtml = sizeOptions.length === 0
+    ? '<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:8px;">No sizes yet — add one below (e.g. Single, Double).</div>'
+    : sizeOptions.map((s, idx) => `
+        <div class="row-item" style="padding:7px 10px;margin-bottom:6px;">
+          <div class="rmain"><div class="t1">${escapeHtml(s.name)}</div><div class="t2">${Number(s.price||0)} EGP</div></div>
+          <button class="btn-danger" onclick="removeSizeOption('${d.id}', ${idx})">Delete</button>
+        </div>`).join('');
+
   return `
   <div style="margin-top:10px;padding:12px;border-top:1px dashed var(--line);background:var(--cream-50);border-radius:8px;">
+    <div class="toggle-row" style="border-bottom:none;padding:2px 0 8px;">
+      <div class="tt" style="font-size:13.5px;">Offer size options for this dish (e.g. Single / Double)</div>
+      <label class="switch"><input type="checkbox" id="sizesEnabled-${d.id}" ${d.sizesEnabled ? 'checked' : ''}><span class="slider"></span></label>
+    </div>
+    ${sizesRowsHtml}
+    <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;">
+      <input id="newSizeName-${d.id}" placeholder="Name (e.g. Single)" style="flex:1;min-width:110px;padding:7px 10px;border:1.5px solid var(--line);border-radius:6px;">
+      <input id="newSizePrice-${d.id}" type="number" min="0" placeholder="Price (EGP)" style="width:110px;padding:7px 10px;border:1.5px solid var(--line);border-radius:6px;">
+      <button class="btn-ghost-dark" onclick="addSizeOption('${d.id}')">+ Add size</button>
+    </div>
+    <p style="font-size:11.5px;color:var(--ink-soft);margin:8px 0 0;">When sizes are on, the guest must pick one and its price replaces the dish's base price above.</p>
+    <button class="btn-ghost-dark" style="margin-top:10px;" onclick="saveItemSizesToggle('${d.id}')">Save size toggle</button>
+    <div class="msg" id="sizesConfigMsg-${d.id}"></div>
+
+    <div style="height:1px;background:var(--line);margin:16px 0;"></div>
+
     <div class="toggle-row" style="border-bottom:none;padding:2px 0 8px;">
       <div class="tt" style="font-size:13.5px;">Offer side dishes for this dish</div>
       <label class="switch"><input type="checkbox" id="sidesEnabled-${d.id}" ${d.sidesEnabled ? 'checked' : ''}><span class="slider"></span></label>
@@ -1346,8 +1415,33 @@ function renderItemSidesConfig(d){
     <div style="font-size:11px;font-weight:700;color:var(--wine-900);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;">Import from side dishes list</div>
     ${optionsHtml}
     <button class="btn-ghost-dark" style="margin-top:12px;" onclick="saveItemSidesConfig('${d.id}')">Save sides settings</button>
-    <div class="msg" id="sidesConfigMsg-${d.id}"></div>
+    <div class="msg" id="sidesConfigMsg2-${d.id}"></div>
   </div>`;
+}
+
+function addSizeOption(itemId){
+  const d = items.find(i => i.id === itemId); if(!d) return;
+  const nameInp = document.getElementById('newSizeName-'+itemId);
+  const priceInp = document.getElementById('newSizePrice-'+itemId);
+  const name = nameInp.value.trim();
+  if(!name) return;
+  const sizeOptions = (d.sizeOptions || []).concat([{ name, price: Number(priceInp.value) || 0 }]);
+  db.collection('menuItems').doc(itemId).update({ sizeOptions })
+    .then(() => { nameInp.value = ''; priceInp.value = ''; })
+    .catch(err => alert(err.message));
+}
+function removeSizeOption(itemId, idx){
+  const d = items.find(i => i.id === itemId); if(!d) return;
+  const sizeOptions = (d.sizeOptions || []).filter((_, i) => i !== idx);
+  db.collection('menuItems').doc(itemId).update({ sizeOptions }).catch(err => alert(err.message));
+}
+function saveItemSizesToggle(itemId){
+  const enabledEl = document.getElementById('sizesEnabled-'+itemId);
+  if(!enabledEl) return;
+  const msg = document.getElementById('sizesConfigMsg-'+itemId);
+  db.collection('menuItems').doc(itemId).update({ sizesEnabled: enabledEl.checked })
+    .then(() => { if(msg){ msg.textContent = 'Saved.'; msg.className = 'msg ok'; } })
+    .catch(err => { if(msg){ msg.textContent = err.message; msg.className = 'msg err'; } });
 }
 
 function saveItemSidesConfig(itemId){
@@ -1362,7 +1456,7 @@ function saveItemSidesConfig(itemId){
     const box = document.getElementById('sideSel-'+itemId+'-'+s.id);
     return box && box.checked;
   }).map(s => s.id);
-  const msg = document.getElementById('sidesConfigMsg-'+itemId);
+  const msg = document.getElementById('sidesConfigMsg2-'+itemId);
   db.collection('menuItems').doc(itemId).update({ sidesEnabled, maxSides, includedFreeSides, sideDishIds })
     .then(() => { if(msg){ msg.textContent = 'Saved.'; msg.className = 'msg ok'; } })
     .catch(err => { if(msg){ msg.textContent = err.message; msg.className = 'msg err'; } });
