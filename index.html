@@ -865,14 +865,11 @@ document.getElementById('confirmSendOrderBtn').onclick = async () => {
     details['Name'] = name; details['Phone'] = phone; details['Address'] = address;
   }
 
-  const number = (settings.whatsappNumber || '').replace(/[^0-9]/g,'');
-  if(!number){ msg.textContent = 'The restaurant has not set up a WhatsApp number yet.'; return; }
-
   const lines = cart.map(c => `• ${c.name} x${c.qty} — ${c.price*c.qty} EGP`).join('\n');
   const text = `${ORDER_TYPE_LABELS[selectedOrderType]}\n${detailsLines.join('\n')}\n\nOrder:\n${lines}\nTotal: ${cartTotal()} EGP`;
 
-  window.open(`https://wa.me/${number}?text=${encodeURIComponent(text)}`, '_blank');
-  sendWhatsappAlert(`🛎️ ${text}`);
+  const btn = document.getElementById('confirmSendOrderBtn');
+  btn.disabled = true; btn.textContent = 'Sending…';
 
   try{
     await db.collection('orders').add({
@@ -882,10 +879,16 @@ document.getElementById('confirmSendOrderBtn').onclick = async () => {
       total: cartTotal(),
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-  }catch(err){ console.warn('Could not save order record', err); }
-
-  cart = []; saveCart();
-  closeCart();
+    sendWhatsappAlert(`🛎️ ${text}`);
+    cart = []; saveCart();
+    closeCart();
+    alert('Order sent! The restaurant has received it.');
+  }catch(err){
+    msg.textContent = 'Could not send your order — please try again.';
+    console.error('Could not save order', err);
+  }finally{
+    btn.disabled = false; btn.textContent = 'Send order';
+  }
 };
 
 /* =========================================================================
