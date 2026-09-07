@@ -1007,16 +1007,34 @@ function selectOrderType(type){
   document.getElementById('orderFormMsg').textContent = '';
   const fields = document.getElementById('orderFormFields');
   if(type === 'table'){
-    fields.innerHTML = `<div class="field" style="margin-bottom:0;"><label>Table number</label><input id="orderTableNumber" placeholder="e.g. 5"></div>`;
+    fields.innerHTML = `
+      <div class="field" style="margin-bottom:0;"><label>Table number</label><input id="orderTableNumber" placeholder="e.g. 5"></div>
+      <p style="font-size:12px;color:var(--ink-soft);margin:10px 0 0;">Payment is available by Card or Cash.</p>`;
   } else if(type === 'togo'){
     fields.innerHTML = `
       <div class="field" style="margin-bottom:10px;"><label>Name</label><input id="orderName" placeholder="Your name"></div>
-      <div class="field" style="margin-bottom:0;"><label>Phone number</label><input id="orderPhone" placeholder="e.g. 01xxxxxxxxx"></div>`;
+      <div class="field" style="margin-bottom:0;"><label>Phone number</label><input id="orderPhone" placeholder="e.g. 01xxxxxxxxx"></div>
+      <p style="font-size:12px;color:var(--ink-soft);margin:10px 0 0;">Payment is available by Card or Cash.</p>`;
   } else if(type === 'delivery'){
     fields.innerHTML = `
       <div class="field" style="margin-bottom:10px;"><label>Name</label><input id="orderName" placeholder="Your name"></div>
       <div class="field" style="margin-bottom:10px;"><label>Phone number</label><input id="orderPhone" placeholder="e.g. 01xxxxxxxxx"></div>
-      <div class="field" style="margin-bottom:0;"><label>Delivery address</label><input id="orderAddress" placeholder="Street, building, area"></div>`;
+      <div class="field" style="margin-bottom:14px;"><label>Delivery address</label><input id="orderAddress" placeholder="Street, building, area"></div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Payment method</label>
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13.5px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--ink);">
+            <input type="radio" name="deliveryPayment" value="InstaPay" checked> InstaPay
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13.5px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--ink);">
+            <input type="radio" name="deliveryPayment" value="Card"> Card
+          </label>
+          <p style="font-size:11.5px;color:var(--ink-soft);margin:0 0 4px 26px;">Our delivery associate will bring the POS machine with them.</p>
+          <label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13.5px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--ink);">
+            <input type="radio" name="deliveryPayment" value="Cash"> Cash
+          </label>
+        </div>
+      </div>`;
   }
 }
 function cancelOrderType(){
@@ -1052,8 +1070,10 @@ document.getElementById('confirmSendOrderBtn').onclick = async () => {
     const phone = document.getElementById('orderPhone').value.trim();
     const address = document.getElementById('orderAddress').value.trim();
     if(!name || !phone || !address){ msg.textContent = 'Enter your name, phone number, and delivery address.'; return; }
-    detailsLines.push(`Name: ${name}`, `Phone: ${phone}`, `Address: ${address}`);
-    details['Name'] = name; details['Phone'] = phone; details['Address'] = address;
+    const paymentRadio = Array.from(document.getElementsByName('deliveryPayment')).find(r => r.checked);
+    const payment = paymentRadio ? paymentRadio.value : 'InstaPay';
+    detailsLines.push(`Name: ${name}`, `Phone: ${phone}`, `Address: ${address}`, `Payment: ${payment}`);
+    details['Name'] = name; details['Phone'] = phone; details['Address'] = address; details['Payment'] = payment;
   }
 
   const note = document.getElementById('orderNote').value.trim();
