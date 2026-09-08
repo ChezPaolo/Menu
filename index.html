@@ -217,6 +217,8 @@
 
 <a id="whatsappFloat" class="whatsapp-float" href="#" target="_blank" style="display:none;" title="Chat on WhatsApp">💬</a>
 
+<div id="debugErrorBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#B94A34;color:#fff;padding:12px 14px;font-size:12px;line-height:1.6;z-index:200;max-height:45vh;overflow-y:auto;box-shadow:0 -4px 14px rgba(0,0,0,.25);"></div>
+
 <footer class="site-footer">
   <div class="footer-grid">
     <div>
@@ -483,6 +485,16 @@ const db = firebase.firestore();
 
 function escapeHtml(s){ return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+function showDataError(collectionName, err){
+  console.error(collectionName, err);
+  const banner = document.getElementById('debugErrorBanner');
+  if(!banner) return;
+  const line = document.createElement('div');
+  line.textContent = `[${collectionName}] ${err && err.code ? err.code + ': ' : ''}${err && err.message ? err.message : err}`;
+  banner.appendChild(line);
+  banner.style.display = 'block';
+}
+
 /* Your GitHub repo where you upload menu photos. Any filename typed into a
    photo field (e.g. "Logo.png") is automatically turned into the full link
    below + that filename. You never need to touch a setting for this. */
@@ -578,7 +590,7 @@ db.collection('rSettings').doc('main').onSnapshot(doc => {
   settings = doc.exists ? doc.data() : {};
   renderSettingsPublic();
   fillAdminSettingsForm();
-});
+}, err => showDataError('rSettings', err));
 
 function renderSettingsPublic(){
   const name = settings.name || 'Our Restaurant';
@@ -828,24 +840,24 @@ db.collection('menuCategories').orderBy('order').onSnapshot(snap => {
   categories = snap.docs.map(d => ({ id:d.id, ...d.data() }));
   renderMenuBrowser();
   if(currentAdminUser) renderAdminMenuTab();
-}, err => console.error(err));
+}, err => showDataError('menuCategories', err));
 
 db.collection('menuItems').orderBy('order').onSnapshot(snap => {
   items = snap.docs.map(d => ({ id:d.id, ...d.data() }));
   renderMenuBrowser();
   if(currentAdminUser) renderAdminMenuTab();
-}, err => console.error(err));
+}, err => showDataError('menuItems', err));
 
 db.collection('menus').orderBy('order').onSnapshot(snap => {
   try{
     customMenus = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-  }catch(e){ console.error('Could not read custom menus', e); customMenus = []; }
+  }catch(e){ showDataError('menus (parsing)', e); customMenus = []; }
   renderMenuLaunchButtons();
   renderFooterMenuLinks();
   renderMenuBrowser();
   if(currentAdminUser) renderAdminMenuTab();
 }, err => {
-  console.error('menus listener failed (falling back to default menus only):', err);
+  showDataError('menus', err);
   customMenus = [];
   renderMenuLaunchButtons();
   renderFooterMenuLinks();
@@ -855,12 +867,12 @@ db.collection('sideDishes').orderBy('order').onSnapshot(snap => {
   sideDishes = snap.docs.map(d => ({ id:d.id, ...d.data() }));
   renderMenuBrowser();
   if(currentAdminUser){ renderAdminSidesTab(); renderAdminMenuTab(); }
-}, err => console.error(err));
+}, err => showDataError('sideDishes', err));
 
 db.collection('deliveryZones').orderBy('order').onSnapshot(snap => {
   deliveryZones = snap.docs.map(d => ({ id:d.id, ...d.data() }));
   if(currentAdminUser) renderAdminZonesTab();
-}, err => console.error(err));
+}, err => showDataError('deliveryZones', err));
 
 function renderMenuLaunchButtons(){
   const stack = document.getElementById('menuLaunchStack');
@@ -1275,7 +1287,7 @@ function startOrdersListener(){
   ordersUnsub = db.collection('orders').orderBy('createdAt', 'desc').limit(200).onSnapshot(snap => {
     orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if(currentAdminUser) renderAdminOrdersTab();
-  }, err => console.error(err));
+  }, err => showDataError('orders', err));
 }
 function stopOrdersListener(){
   if(ordersUnsub){ ordersUnsub(); ordersUnsub = null; }
@@ -1781,4 +1793,4 @@ function moveItem(id, categoryId, delta){
 }
 </script>
 </body>
-</html>
+</ht
