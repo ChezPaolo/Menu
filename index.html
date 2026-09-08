@@ -1084,8 +1084,9 @@ function selectOrderType(type){
       ? '<p style="font-size:12.5px;color:var(--ink-soft);margin:0;">No delivery zones set up yet — the restaurant will confirm delivery cost separately.</p>'
       : `<select id="deliveryZoneSelect" onchange="onDeliveryZoneChange()" style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--cream-50);font-size:13.5px;color:var(--ink);">
           <option value="">Select your zone…</option>
-          ${deliveryZones.map(z => `<option value="${z.id}">${escapeHtml(z.name)} — ${Number(z.price||0)} EGP</option>`).join('')}
-        </select>`;
+          ${deliveryZones.map(z => `<option value="${z.id}">${escapeHtml(z.name)}</option>`).join('')}
+        </select>
+        <div id="zoneFeeNote" style="font-size:12px;color:var(--gold-dark);font-weight:700;margin-top:6px;"></div>`;
     fields.innerHTML = `
       <div class="field" style="margin-bottom:10px;"><label>Name</label><input id="orderName" placeholder="Your name"></div>
       <div class="field" style="margin-bottom:14px;"><label>Phone number</label><input id="orderPhone" placeholder="e.g. 01xxxxxxxxx"></div>
@@ -1116,6 +1117,8 @@ function onDeliveryZoneChange(){
   const select = document.getElementById('deliveryZoneSelect');
   const zoneId = select ? select.value : '';
   selectedDeliveryZone = zoneId ? deliveryZones.find(z => z.id === zoneId) : null;
+  const note = document.getElementById('zoneFeeNote');
+  if(note) note.textContent = selectedDeliveryZone ? `+${Number(selectedDeliveryZone.price||0)} EGP added to total` : '';
   refreshTotalDisplay();
 }
 function cancelOrderType(){
