@@ -837,12 +837,19 @@ db.collection('menuItems').orderBy('order').onSnapshot(snap => {
 }, err => console.error(err));
 
 db.collection('menus').orderBy('order').onSnapshot(snap => {
-  customMenus = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+  try{
+    customMenus = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+  }catch(e){ console.error('Could not read custom menus', e); customMenus = []; }
   renderMenuLaunchButtons();
   renderFooterMenuLinks();
   renderMenuBrowser();
   if(currentAdminUser) renderAdminMenuTab();
-}, err => console.error(err));
+}, err => {
+  console.error('menus listener failed (falling back to default menus only):', err);
+  customMenus = [];
+  renderMenuLaunchButtons();
+  renderFooterMenuLinks();
+});
 
 db.collection('sideDishes').orderBy('order').onSnapshot(snap => {
   sideDishes = snap.docs.map(d => ({ id:d.id, ...d.data() }));
@@ -870,6 +877,10 @@ function renderFooterMenuLinks(){
     `<li><a href="#" onclick="openMenu('${m.key}');return false;">${escapeHtml(m.label)}</a></li>`
   ).join('');
 }
+/* Render the default menus immediately, before Firestore even responds, so the
+   homepage never sits blank waiting on the network or on custom-menu permissions. */
+renderMenuLaunchButtons();
+renderFooterMenuLinks();
 
 function openMenu(key){
   currentMenuKey = key;
