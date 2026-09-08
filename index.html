@@ -1082,17 +1082,16 @@ function selectOrderType(type){
     selectedDeliveryZone = null;
     const zoneOptions = deliveryZones.length === 0
       ? '<p style="font-size:12.5px;color:var(--ink-soft);margin:0;">No delivery zones set up yet — the restaurant will confirm delivery cost separately.</p>'
-      : deliveryZones.map(z => `
-          <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;font-size:13.5px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--ink);">
-            <span style="display:flex;align-items:center;gap:8px;"><input type="radio" name="deliveryZone" value="${z.id}" onchange="onDeliveryZoneChange()">${escapeHtml(z.name)}</span>
-            <span style="color:var(--gold-dark);font-weight:700;">${Number(z.price||0)} EGP</span>
-          </label>`).join('');
+      : `<select id="deliveryZoneSelect" onchange="onDeliveryZoneChange()" style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--cream-50);font-size:13.5px;color:var(--ink);">
+          <option value="">Select your zone…</option>
+          ${deliveryZones.map(z => `<option value="${z.id}">${escapeHtml(z.name)} — ${Number(z.price||0)} EGP</option>`).join('')}
+        </select>`;
     fields.innerHTML = `
       <div class="field" style="margin-bottom:10px;"><label>Name</label><input id="orderName" placeholder="Your name"></div>
       <div class="field" style="margin-bottom:14px;"><label>Phone number</label><input id="orderPhone" placeholder="e.g. 01xxxxxxxxx"></div>
       <div class="field" style="margin-bottom:14px;">
         <label>Choose your zone</label>
-        <div style="display:flex;flex-direction:column;gap:2px;">${zoneOptions}</div>
+        <div>${zoneOptions}</div>
       </div>
       <div class="field" style="margin-bottom:14px;"><label>Detailed address</label><input id="orderAddress" placeholder="Street, building, floor, apartment..."></div>
       <div class="field" style="margin-bottom:0;">
@@ -1114,9 +1113,9 @@ function selectOrderType(type){
   refreshTotalDisplay();
 }
 function onDeliveryZoneChange(){
-  const radios = document.getElementsByName('deliveryZone');
-  const checked = Array.from(radios).find(r => r.checked);
-  selectedDeliveryZone = checked ? deliveryZones.find(z => z.id === checked.value) : null;
+  const select = document.getElementById('deliveryZoneSelect');
+  const zoneId = select ? select.value : '';
+  selectedDeliveryZone = zoneId ? deliveryZones.find(z => z.id === zoneId) : null;
   refreshTotalDisplay();
 }
 function cancelOrderType(){
