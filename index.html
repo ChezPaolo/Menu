@@ -415,6 +415,20 @@
         </div>
       </div>
       <div class="panel">
+        <div class="panel-head"><h2>Delivery zones</h2></div>
+        <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-6px;margin-bottom:14px;">
+          Guests ordering delivery pick their zone and see the delivery price added automatically. You can write the zone
+          name in Arabic and English together in one line, e.g. "Maadi / المعادي".
+        </p>
+        <div id="adminZonesContainer"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+          <input id="newZoneName" placeholder="Zone name (e.g. Maadi / المعادي)" style="flex:1;min-width:180px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
+          <input id="newZonePrice" type="number" min="0" placeholder="Delivery price (EGP)" style="width:180px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;">
+          <button class="btn-ghost-dark" onclick="addDeliveryZone()">+ Add zone</button>
+        </div>
+        <div class="msg" id="zonesMsg"></div>
+      </div>
+      <div class="panel">
         <div class="panel-head"><h2>WhatsApp order alerts (CallMeBot)</h2></div>
         <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-6px;margin-bottom:14px;">
           Get a WhatsApp message every time a guest sends an order. Message
@@ -480,6 +494,7 @@ let categories = [];
 let items = [];
 let customMenus = [];
 let sideDishes = [];
+let deliveryZones = [];
 let expandedSidesItemId = null;
 let editingCategoryId = null;
 let editingItemId = null;
@@ -675,6 +690,44 @@ document.getElementById('orderingToggle').onchange = async (e) => {
   }catch(err){ alert('Could not update: ' + err.message); e.target.checked = !e.target.checked; }
 };
 
+/* ---- Delivery zones ---- */
+function renderAdminZonesTab(){
+  const container = document.getElementById('adminZonesContainer');
+  if(!container) return;
+  container.innerHTML = deliveryZones.length === 0
+    ? '<div class="empty-state">No delivery zones yet — add one below.</div>'
+    : deliveryZones.map(z => `
+      <div class="row-item">
+        <div class="rmain"><div class="t1">${escapeHtml(z.name)}</div><div class="t2">${Number(z.price||0)} EGP delivery</div></div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn-ghost-dark" onclick="editDeliveryZone('${z.id}')">Edit</button>
+          <button class="btn-danger" onclick="deleteDeliveryZone('${z.id}')">Delete</button>
+        </div>
+      </div>`).join('');
+}
+async function addDeliveryZone(){
+  const nameInp = document.getElementById('newZoneName');
+  const priceInp = document.getElementById('newZonePrice');
+  const name = nameInp.value.trim();
+  const msg = document.getElementById('zonesMsg');
+  if(!name){ msg.textContent = 'Enter a zone name.'; msg.className = 'msg err'; return; }
+  const order = deliveryZones.length;
+  try{
+    await db.collection('deliveryZones').add({ name, price: Number(priceInp.value) || 0, order });
+    nameInp.value = ''; priceInp.value = ''; msg.textContent = 'Added.'; msg.className = 'msg ok';
+  }catch(err){ msg.textContent = err.message; msg.className = 'msg err'; }
+}
+function editDeliveryZone(id){
+  const z = deliveryZones.find(x => x.id === id); if(!z) return;
+  const name = prompt('Zone name (you can write Arabic and English together):', z.name); if(name === null) return;
+  const priceStr = prompt('Delivery price (EGP):', z.price || 0); if(priceStr === null) return;
+  db.collection('deliveryZones').doc(id).update({ name: name.trim() || z.name, price: Number(priceStr) || 0 });
+}
+function deleteDeliveryZone(id){
+  if(!confirm('Delete this delivery zone?')) return;
+  db.collection('deliveryZones').doc(id).delete();
+}
+
 /* ---- CallMeBot WhatsApp order alerts ---- */
 document.getElementById('saveCallmebotBtn').onclick = async () => {
   const enabled = document.getElementById('callmebotEnabled').checked;
@@ -741,6 +794,11 @@ db.collection('sideDishes').orderBy('order').onSnapshot(snap => {
   sideDishes = snap.docs.map(d => ({ id:d.id, ...d.data() }));
   renderMenuBrowser();
   if(currentAdminUser){ renderAdminSidesTab(); renderAdminMenuTab(); }
+}, err => console.error(err));
+
+db.collection('deliveryZones').orderBy('order').onSnapshot(snap => {
+  deliveryZones = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+  if(currentAdminUser) renderAdminZonesTab();
 }, err => console.error(err));
 
 function renderMenuLaunchButtons(){
@@ -969,6 +1027,10 @@ function changeQty(cartKey, delta){
 }
 function cartTotal(){ return cart.reduce((s,c) => s + c.price*c.qty, 0); }
 function cartCount(){ return cart.reduce((s,c) => s + c.qty, 0); }
+function refreshTotalDisplay(){
+  const fee = (selectedOrderType === 'delivery' && selectedDeliveryZone) ? Number(selectedDeliveryZone.price||0) : 0;
+  document.getElementById('cartTotal').textContent = (cartTotal() + fee) + ' EGP';
+}
 function renderCart(){
   const badge = document.getElementById('cartBadge');
   badge.textContent = cartCount();
@@ -984,7 +1046,7 @@ function renderCart(){
           <button class="btn-ghost-dark" onclick="changeQty('${c.cartKey}',1)">+</button>
         </div>
       </div>`).join('');
-  document.getElementById('cartTotal').textContent = cartTotal() + ' EGP';
+  refreshTotalDisplay();
 }
 function openCart(){ document.getElementById('cartDrawer').classList.add('show'); document.getElementById('cartBackdrop').classList.add('show'); }
 function closeCart(){
@@ -997,6 +1059,7 @@ function closeCart(){
 renderCart();
 
 let selectedOrderType = null;
+let selectedDeliveryZone = null;
 const ORDER_TYPE_LABELS = { table: 'Order for your table', togo: 'Order for pickup', delivery: 'Order Delivery' };
 
 function selectOrderType(type){
@@ -1016,10 +1079,22 @@ function selectOrderType(type){
       <div class="field" style="margin-bottom:0;"><label>Phone number</label><input id="orderPhone" placeholder="e.g. 01xxxxxxxxx"></div>
       <p style="font-size:12px;color:var(--ink-soft);margin:10px 0 0;">Payment is available by Card or Cash.</p>`;
   } else if(type === 'delivery'){
+    selectedDeliveryZone = null;
+    const zoneOptions = deliveryZones.length === 0
+      ? '<p style="font-size:12.5px;color:var(--ink-soft);margin:0;">No delivery zones set up yet — the restaurant will confirm delivery cost separately.</p>'
+      : deliveryZones.map(z => `
+          <label style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;font-size:13.5px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--ink);">
+            <span style="display:flex;align-items:center;gap:8px;"><input type="radio" name="deliveryZone" value="${z.id}" onchange="onDeliveryZoneChange()">${escapeHtml(z.name)}</span>
+            <span style="color:var(--gold-dark);font-weight:700;">${Number(z.price||0)} EGP</span>
+          </label>`).join('');
     fields.innerHTML = `
       <div class="field" style="margin-bottom:10px;"><label>Name</label><input id="orderName" placeholder="Your name"></div>
-      <div class="field" style="margin-bottom:10px;"><label>Phone number</label><input id="orderPhone" placeholder="e.g. 01xxxxxxxxx"></div>
-      <div class="field" style="margin-bottom:14px;"><label>Delivery address</label><input id="orderAddress" placeholder="Street, building, area"></div>
+      <div class="field" style="margin-bottom:14px;"><label>Phone number</label><input id="orderPhone" placeholder="e.g. 01xxxxxxxxx"></div>
+      <div class="field" style="margin-bottom:14px;">
+        <label>Choose your zone</label>
+        <div style="display:flex;flex-direction:column;gap:2px;">${zoneOptions}</div>
+      </div>
+      <div class="field" style="margin-bottom:14px;"><label>Detailed address</label><input id="orderAddress" placeholder="Street, building, floor, apartment..."></div>
       <div class="field" style="margin-bottom:0;">
         <label>Payment method</label>
         <div style="display:flex;flex-direction:column;gap:2px;">
@@ -1036,15 +1111,24 @@ function selectOrderType(type){
         </div>
       </div>`;
   }
+  refreshTotalDisplay();
+}
+function onDeliveryZoneChange(){
+  const radios = document.getElementsByName('deliveryZone');
+  const checked = Array.from(radios).find(r => r.checked);
+  selectedDeliveryZone = checked ? deliveryZones.find(z => z.id === checked.value) : null;
+  refreshTotalDisplay();
 }
 function cancelOrderType(){
   selectedOrderType = null;
+  selectedDeliveryZone = null;
   const form = document.getElementById('orderDetailsForm');
   const btns = document.getElementById('orderTypeButtons');
   if(form) form.style.display = 'none';
   if(btns) btns.style.display = 'flex';
   const msg = document.getElementById('orderFormMsg');
   if(msg) msg.textContent = '';
+  refreshTotalDisplay();
 }
 
 document.getElementById('confirmSendOrderBtn').onclick = async () => {
@@ -1070,15 +1154,22 @@ document.getElementById('confirmSendOrderBtn').onclick = async () => {
     const phone = document.getElementById('orderPhone').value.trim();
     const address = document.getElementById('orderAddress').value.trim();
     if(!name || !phone || !address){ msg.textContent = 'Enter your name, phone number, and delivery address.'; return; }
+    if(deliveryZones.length > 0 && !selectedDeliveryZone){ msg.textContent = 'Choose your delivery zone.'; return; }
     const paymentRadio = Array.from(document.getElementsByName('deliveryPayment')).find(r => r.checked);
     const payment = paymentRadio ? paymentRadio.value : 'InstaPay';
-    detailsLines.push(`Name: ${name}`, `Phone: ${phone}`, `Address: ${address}`, `Payment: ${payment}`);
-    details['Name'] = name; details['Phone'] = phone; details['Address'] = address; details['Payment'] = payment;
+    detailsLines.push(`Name: ${name}`, `Phone: ${phone}`);
+    if(selectedDeliveryZone) detailsLines.push(`Zone: ${selectedDeliveryZone.name} (+${Number(selectedDeliveryZone.price||0)} EGP)`);
+    detailsLines.push(`Address: ${address}`, `Payment: ${payment}`);
+    details['Name'] = name; details['Phone'] = phone;
+    if(selectedDeliveryZone) details['Zone'] = `${selectedDeliveryZone.name} (+${Number(selectedDeliveryZone.price||0)} EGP)`;
+    details['Address'] = address; details['Payment'] = payment;
   }
 
+  const deliveryFee = (selectedOrderType === 'delivery' && selectedDeliveryZone) ? Number(selectedDeliveryZone.price||0) : 0;
+  const grandTotal = cartTotal() + deliveryFee;
   const note = document.getElementById('orderNote').value.trim();
   const lines = cart.map(c => `• ${c.name} x${c.qty} — ${c.price*c.qty} EGP`).join('\n');
-  const text = `${ORDER_TYPE_LABELS[selectedOrderType]}\n${detailsLines.join('\n')}${note ? `\nNote: ${note}` : ''}\n\nOrder:\n${lines}\nTotal: ${cartTotal()} EGP`;
+  const text = `${ORDER_TYPE_LABELS[selectedOrderType]}\n${detailsLines.join('\n')}${note ? `\nNote: ${note}` : ''}\n\nOrder:\n${lines}${deliveryFee ? `\nDelivery fee: ${deliveryFee} EGP` : ''}\nTotal: ${grandTotal} EGP`;
 
   const btn = document.getElementById('confirmSendOrderBtn');
   btn.disabled = true; btn.textContent = 'Sending…';
@@ -1089,7 +1180,8 @@ document.getElementById('confirmSendOrderBtn').onclick = async () => {
       details,
       note,
       items: cart.map(c => ({ name: c.name, price: c.price, qty: c.qty })),
-      total: cartTotal(),
+      deliveryFee,
+      total: grandTotal,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     sendWhatsappAlert(`🛎️ ${text}`);
@@ -1130,13 +1222,14 @@ function renderAdminOrderCard(o){
   const detailLines = Object.keys(details).map(k => `<div class="t2">${escapeHtml(k)}: ${escapeHtml(details[k])}</div>`).join('');
   const itemLines = (o.items || []).map(i => `<div class="t2">${escapeHtml(i.name)} × ${i.qty} — ${i.price * i.qty} EGP</div>`).join('');
   const noteHtml = o.note ? `<div class="t2" style="margin-top:4px;font-style:italic;">Note: ${escapeHtml(o.note)}</div>` : '';
+  const feeHtml = o.deliveryFee ? `<div class="t2" style="margin-top:6px;">Delivery fee: ${Number(o.deliveryFee)} EGP</div>` : '';
   let timeStr = '';
   if(o.createdAt && typeof o.createdAt.toDate === 'function'){ timeStr = o.createdAt.toDate().toLocaleString(); }
   return `
   <div class="panel" style="margin-bottom:14px;">
     <div class="panel-head"><h2>${escapeHtml(typeLabel)}</h2><span style="font-size:12px;color:var(--ink-soft);">${escapeHtml(timeStr)}</span></div>
     <div style="margin-bottom:8px;">${detailLines}${noteHtml}</div>
-    <div style="padding-top:8px;border-top:1px dashed var(--line);">${itemLines}</div>
+    <div style="padding-top:8px;border-top:1px dashed var(--line);">${itemLines}${feeHtml}</div>
     <div style="margin-top:10px;font-weight:800;color:var(--wine-900);font-size:14.5px;">Total: ${o.total || 0} EGP</div>
     <button class="btn-danger" style="margin-top:12px;" onclick="deleteOrder('${o.id}')">Delete</button>
   </div>`;
@@ -1212,7 +1305,7 @@ function switchAdminTab(tab){
   if(tab === 'menu') renderAdminMenuTab();
   if(tab === 'sides') renderAdminSidesTab();
   if(tab === 'orders') renderAdminOrdersTab();
-  if(tab === 'settings') fillAdminSettingsForm();
+  if(tab === 'settings'){ fillAdminSettingsForm(); renderAdminZonesTab(); }
 }
 
 /* =========================================================================
