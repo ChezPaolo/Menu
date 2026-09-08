@@ -192,6 +192,7 @@
     <span id="navName">Our Restaurant</span>
   </a>
   <div class="navlinks">
+    <button id="orderTypePill" class="cart-nav-btn" style="display:none;width:auto;padding:0 12px;border-radius:16px;font-size:11.5px;font-weight:700;" onclick="requestChangeOrderType()" title="Change how you're ordering"></button>
     <button id="cartNavBtn" class="cart-nav-btn" style="display:none;" onclick="openCart()" title="Your order">
       🛒<span id="cartBadge" class="cart-badge" style="display:none;">0</span>
     </button>
@@ -255,18 +256,29 @@
       <textarea id="orderNote" rows="2" placeholder="e.g. no onions, extra spicy..." style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:13.5px;resize:vertical;background:var(--cream-50);"></textarea>
     </div>
     <div class="cart-total-row"><span>Total</span><span id="cartTotal">0 EGP</span></div>
-    <div id="orderTypeButtons" style="display:flex;flex-direction:column;gap:8px;">
-      <button class="btn btn-ghost btn-block" onclick="selectOrderType('table')">Order for your table</button>
-      <button class="btn btn-ghost btn-block" onclick="selectOrderType('togo')">Order for pickup</button>
-      <button class="btn btn-ghost btn-block" onclick="selectOrderType('delivery')">Order Delivery</button>
+    <div id="orderingAsRow" style="display:none;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:12.5px;color:var(--ink-soft);">
+      <span>Ordering as: <strong id="orderingAsLabel" style="color:var(--wine-900);"></strong></span>
+      <button class="btn-ghost-dark" style="padding:4px 10px;font-size:11.5px;" onclick="requestChangeOrderType()">Change</button>
     </div>
     <div id="orderDetailsForm" style="display:none;">
       <div id="orderFormFields"></div>
-      <div style="display:flex;gap:8px;margin-top:12px;">
-        <button class="btn-ghost-dark" onclick="cancelOrderType()">← Back</button>
+      <div style="margin-top:12px;">
         <button class="btn btn-gold btn-block" id="confirmSendOrderBtn">Send order</button>
       </div>
       <div class="msg err" id="orderFormMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ORDER TYPE MODAL ============ -->
+<div id="orderTypeModal" style="display:none;position:fixed;inset:0;z-index:110;align-items:center;justify-content:center;padding:20px;background:rgba(36,23,19,.55);">
+  <div style="background:#fff;border-radius:16px;padding:30px 26px;max-width:360px;width:100%;text-align:center;box-shadow:var(--shadow);">
+    <h3 style="margin:0 0 6px;color:var(--wine-900);">How are you ordering today?</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 22px;">This makes sure you always see the right prices.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn btn-gold btn-block" onclick="chooseBrowsingOrderType('table')">Table Service (Dine-in)</button>
+      <button class="btn btn-ghost btn-block" onclick="chooseBrowsingOrderType('togo')">Pickup</button>
+      <button class="btn btn-ghost btn-block" onclick="chooseBrowsingOrderType('delivery')">Delivery</button>
     </div>
   </div>
 </div>
@@ -503,6 +515,46 @@ try{ cart = JSON.parse(localStorage.getItem('cart') || '[]'); }catch(e){ cart = 
 let currentMenuKey = null;
 let currentCategoryId = null;
 let callmebotSettings = { enabled:false, phone:'', apikey:'' };
+let browsingOrderType = null;
+try{ browsingOrderType = localStorage.getItem('browsingOrderType') || null; }catch(e){ browsingOrderType = null; }
+const ORDER_TYPE_SHORT = { table:'Dine-in', togo:'Pickup', delivery:'Delivery' };
+
+function effectivePrice(d){
+  if(browsingOrderType === 'togo' && typeof d.pickupPrice === 'number') return d.pickupPrice;
+  if(browsingOrderType === 'delivery' && typeof d.deliveryPrice === 'number') return d.deliveryPrice;
+  return Number(d.price||0);
+}
+
+function chooseBrowsingOrderType(type){
+  browsingOrderType = type;
+  try{ localStorage.setItem('browsingOrderType', type); }catch(e){}
+  document.getElementById('orderTypeModal').style.display = 'none';
+  updateOrderTypePill();
+  renderMenuBrowser();
+}
+function requestChangeOrderType(){
+  if(cart.length > 0){
+    if(!confirm("Changing how you're ordering clears your current cart, since prices are different. Continue?")) return;
+    cart = []; saveCart();
+  }
+  document.getElementById('orderTypeModal').style.display = 'flex';
+}
+function updateOrderTypePill(){
+  const pill = document.getElementById('orderTypePill');
+  if(!pill) return;
+  if(!settings.orderingEnabled || !browsingOrderType){ pill.style.display = 'none'; return; }
+  pill.textContent = (ORDER_TYPE_SHORT[browsingOrderType] || '') + ' ▾';
+  pill.style.display = 'inline-flex';
+}
+function maybeShowOrderTypeModal(){
+  const modal = document.getElementById('orderTypeModal');
+  if(!modal) return;
+  if(settings.orderingEnabled && !browsingOrderType){
+    modal.style.display = 'flex';
+  } else if(modal.style.display === 'flex' && (!settings.orderingEnabled || browsingOrderType)){
+    modal.style.display = 'none';
+  }
+}
 
 const DEFAULT_MENUS = [
   { key:'breakfast', label:'Breakfast Menu' },
@@ -606,6 +658,8 @@ function renderSettingsPublic(){
   document.getElementById('cartNavBtn').style.display = settings.orderingEnabled ? 'flex' : 'none';
   callmebotSettings = settings.callmebot || { enabled:false, phone:'', apikey:'' };
 
+  updateOrderTypePill();
+  maybeShowOrderTypeModal();
   renderMenuBrowser();
   if(currentAdminUser) renderAdminMenuTab();
 }
@@ -874,7 +928,7 @@ function renderMenuBrowser(){
             : `<button class="btn btn-gold btn-sm btn-block" style="margin-top:8px;" onclick="addToCart('${d.id}')">+ Add to order</button>`;
           const priceLabel = hasSizes
             ? `From ${Math.min(...d.sizeOptions.map(s => Number(s.price||0)))} EGP`
-            : `${Number(d.price||0)} EGP`;
+            : `${effectivePrice(d)} EGP`;
           return `
           <div class="dish-card">
             ${resolvePhotoUrl(d.photoUrl) ? `<img class="dish-photo" src="${escapeHtml(resolvePhotoUrl(d.photoUrl))}" alt="${escapeHtml(d.name)}">` : `<div class="dish-photo-empty">No photo</div>`}
@@ -969,7 +1023,7 @@ function addToCartWithSides(itemId){
   const it = items.find(i => i.id === itemId); if(!it) return;
 
   const hasSizes = it.sizesEnabled && (it.sizeOptions||[]).length > 0;
-  let basePrice = Number(it.price||0);
+  let basePrice = effectivePrice(it);
   let sizeName = '';
   if(hasSizes){
     const radios = document.getElementsByName('sizeOpt-'+itemId);
@@ -1015,7 +1069,7 @@ function addToCart(itemId){
   const it = items.find(i => i.id === itemId); if(!it) return;
   const cartKey = itemId;
   const existing = cart.find(c => c.cartKey === cartKey);
-  if(existing) existing.qty++; else cart.push({ cartKey, id: itemId, name: it.name, price: Number(it.price||0), qty: 1 });
+  if(existing) existing.qty++; else cart.push({ cartKey, id: itemId, name: it.name, price: effectivePrice(it), qty: 1 });
   saveCart();
   openCart();
 }
@@ -1047,12 +1101,16 @@ function renderCart(){
         </div>
       </div>`).join('');
   refreshTotalDisplay();
+  syncOrderTypeInCart();
 }
-function openCart(){ document.getElementById('cartDrawer').classList.add('show'); document.getElementById('cartBackdrop').classList.add('show'); }
+function openCart(){
+  document.getElementById('cartDrawer').classList.add('show');
+  document.getElementById('cartBackdrop').classList.add('show');
+  syncOrderTypeInCart();
+}
 function closeCart(){
   document.getElementById('cartDrawer').classList.remove('show');
   document.getElementById('cartBackdrop').classList.remove('show');
-  cancelOrderType();
   const noteEl = document.getElementById('orderNote');
   if(noteEl) noteEl.value = '';
 }
@@ -1061,11 +1119,22 @@ let selectedDeliveryZone = null;
 const ORDER_TYPE_LABELS = { table: 'Order for your table', togo: 'Order for pickup', delivery: 'Order Delivery' };
 renderCart();
 
+function syncOrderTypeInCart(){
+  const asRow = document.getElementById('orderingAsRow');
+  const asLabel = document.getElementById('orderingAsLabel');
+  const form = document.getElementById('orderDetailsForm');
+  if(!browsingOrderType || cart.length === 0){
+    if(asRow) asRow.style.display = 'none';
+    if(form) form.style.display = 'none';
+    return;
+  }
+  if(asRow) asRow.style.display = 'flex';
+  if(asLabel) asLabel.textContent = ORDER_TYPE_SHORT[browsingOrderType] || '';
+  selectOrderType(browsingOrderType);
+}
 
 function selectOrderType(type){
-  if(cart.length === 0) return;
   selectedOrderType = type;
-  document.getElementById('orderTypeButtons').style.display = 'none';
   document.getElementById('orderDetailsForm').style.display = 'block';
   document.getElementById('orderFormMsg').textContent = '';
   const fields = document.getElementById('orderFormFields');
@@ -1119,17 +1188,6 @@ function onDeliveryZoneChange(){
   selectedDeliveryZone = zoneId ? deliveryZones.find(z => z.id === zoneId) : null;
   const note = document.getElementById('zoneFeeNote');
   if(note) note.textContent = selectedDeliveryZone ? `+${Number(selectedDeliveryZone.price||0)} EGP added to total` : '';
-  refreshTotalDisplay();
-}
-function cancelOrderType(){
-  selectedOrderType = null;
-  selectedDeliveryZone = null;
-  const form = document.getElementById('orderDetailsForm');
-  const btns = document.getElementById('orderTypeButtons');
-  if(form) form.style.display = 'none';
-  if(btns) btns.style.display = 'flex';
-  const msg = document.getElementById('orderFormMsg');
-  if(msg) msg.textContent = '';
   refreshTotalDisplay();
 }
 
@@ -1418,18 +1476,28 @@ function renderAdminItemRow(d, idx, total){
   const sidesTag = d.sidesEnabled ? ` • Sides on (max ${d.maxSides||1})` : '';
   const sizesTag = d.sizesEnabled ? ` • Sizes on (${(d.sizeOptions||[]).length})` : '';
   const noteTag = d.note ? ` • “${d.note}”` : '';
+  const pickupTag = typeof d.pickupPrice === 'number' ? ` • Pickup: ${d.pickupPrice} EGP` : '';
+  const deliveryTag = typeof d.deliveryPrice === 'number' ? ` • Delivery: ${d.deliveryPrice} EGP` : '';
   const topRow = isEditing ? `
     <div style="display:flex;align-items:center;gap:10px;width:100%;flex-wrap:wrap;">
       <input id="editItemName-${d.id}" value="${escapeHtml(d.name)}" placeholder="Dish name" style="flex:1;min-width:120px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
       <input id="editItemPrice-${d.id}" type="number" min="0" value="${Number(d.price||0)}" style="width:110px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
       <input id="editItemPhoto-${d.id}" value="${escapeHtml(d.photoUrl||'')}" placeholder="Photo filename" style="flex:1;min-width:140px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
       <input id="editItemNote-${d.id}" value="${escapeHtml(d.note||'')}" placeholder="Note (optional, e.g. Parmesano Chicken)" style="flex:1;min-width:180px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
+      <div style="width:100%;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <label style="font-size:11.5px;color:var(--ink-soft);display:flex;flex-direction:column;gap:3px;">Pickup price (optional override)
+          <input id="editItemPickupPrice-${d.id}" type="number" min="0" value="${typeof d.pickupPrice==='number' ? d.pickupPrice : ''}" placeholder="Same as price above" style="width:170px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
+        </label>
+        <label style="font-size:11.5px;color:var(--ink-soft);display:flex;flex-direction:column;gap:3px;">Delivery price (optional override)
+          <input id="editItemDeliveryPrice-${d.id}" type="number" min="0" value="${typeof d.deliveryPrice==='number' ? d.deliveryPrice : ''}" placeholder="Same as price above" style="width:170px;padding:8px 10px;border:1.5px solid var(--line);border-radius:6px;">
+        </label>
+      </div>
       <button class="btn-ghost-dark" onclick="saveItemEdit('${d.id}')">Save</button>
       <button class="btn-ghost-dark" onclick="cancelItemEdit()">Cancel</button>
     </div>` : `
     <div style="display:flex;align-items:center;gap:12px;width:100%;flex-wrap:wrap;">
       <img src="${escapeHtml(resolvePhotoUrl(d.photoUrl))}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:var(--cream-100);flex-shrink:0;" onerror="this.style.opacity='0.2'">
-      <div class="rmain"><div class="t1">${escapeHtml(d.name)}</div><div class="t2">${Number(d.price||0)} EGP${sizesTag}${sidesTag}${noteTag}</div></div>
+      <div class="rmain"><div class="t1">${escapeHtml(d.name)}</div><div class="t2">${Number(d.price||0)} EGP${sizesTag}${sidesTag}${pickupTag}${deliveryTag}${noteTag}</div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn-ghost-dark" onclick="toggleItemEdit('${d.id}')">Edit</button>
         <button class="btn-ghost-dark" onclick="toggleItemSidesConfig('${d.id}')">${isExpanded ? 'Close' : 'Options'}</button>
@@ -1459,14 +1527,20 @@ function saveItemEdit(itemId){
   const priceEl = document.getElementById('editItemPrice-'+itemId);
   const photoEl = document.getElementById('editItemPhoto-'+itemId);
   const noteEl = document.getElementById('editItemNote-'+itemId);
+  const pickupEl = document.getElementById('editItemPickupPrice-'+itemId);
+  const deliveryEl = document.getElementById('editItemDeliveryPrice-'+itemId);
   if(!nameEl) return;
   const name = nameEl.value.trim();
   if(!name){ alert('Enter a dish name.'); return; }
+  const pickupPrice = pickupEl && pickupEl.value.trim() !== '' ? Number(pickupEl.value) : null;
+  const deliveryPrice = deliveryEl && deliveryEl.value.trim() !== '' ? Number(deliveryEl.value) : null;
   db.collection('menuItems').doc(itemId).update({
     name,
     price: Number(priceEl.value) || 0,
     photoUrl: photoEl.value.trim(),
-    note: noteEl.value.trim()
+    note: noteEl.value.trim(),
+    pickupPrice,
+    deliveryPrice
   }).then(() => { editingItemId = null; renderAdminMenuTab(); })
     .catch(err => alert(err.message));
 }
