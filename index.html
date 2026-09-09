@@ -527,8 +527,10 @@ try{ cart = JSON.parse(localStorage.getItem('cart') || '[]'); }catch(e){ cart = 
 let currentMenuKey = null;
 let currentCategoryId = null;
 let callmebotSettings = { enabled:false, phone:'', apikey:'' };
+/* Not persisted on purpose — the person is asked dine-in/pickup/delivery again
+   every time the page loads or is refreshed, so a shared device (e.g. a table
+   tablet) never carries over the previous guest's choice. */
 let browsingOrderType = null;
-try{ browsingOrderType = localStorage.getItem('browsingOrderType') || null; }catch(e){ browsingOrderType = null; }
 const ORDER_TYPE_SHORT = { table:'Dine-in', togo:'Pickup', delivery:'Delivery' };
 
 function effectivePrice(d){
@@ -539,7 +541,6 @@ function effectivePrice(d){
 
 function chooseBrowsingOrderType(type){
   browsingOrderType = type;
-  try{ localStorage.setItem('browsingOrderType', type); }catch(e){}
   document.getElementById('orderTypeModal').style.display = 'none';
   updateOrderTypePill();
   renderMenuBrowser();
@@ -1189,18 +1190,12 @@ function selectOrderType(type){
       <div class="field" style="margin-bottom:14px;"><label>Detailed address</label><input id="orderAddress" placeholder="Street, building, floor, apartment..."></div>
       <div class="field" style="margin-bottom:0;">
         <label>Payment method</label>
-        <div style="display:flex;flex-direction:column;gap:2px;">
-          <label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13.5px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--ink);">
-            <input type="radio" name="deliveryPayment" value="InstaPay" checked> InstaPay
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13.5px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--ink);">
-            <input type="radio" name="deliveryPayment" value="Card"> Card
-          </label>
-          <p style="font-size:11.5px;color:var(--ink-soft);margin:0 0 4px 26px;">Our delivery associate will bring the POS machine with them.</p>
-          <label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13.5px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--ink);">
-            <input type="radio" name="deliveryPayment" value="Cash"> Cash
-          </label>
-        </div>
+        <select id="deliveryPaymentSelect" onchange="onDeliveryPaymentChange()" style="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;background:var(--cream-50);font-size:13.5px;color:var(--ink);">
+          <option value="InstaPay">InstaPay</option>
+          <option value="Card">Card</option>
+          <option value="Cash">Cash</option>
+        </select>
+        <p id="cardPaymentNote" style="display:none;font-size:11.5px;color:var(--ink-soft);margin:6px 0 0;">Our delivery associate will bring the POS machine with them.</p>
       </div>`;
   }
   refreshTotalDisplay();
@@ -1212,6 +1207,11 @@ function onDeliveryZoneChange(){
   const note = document.getElementById('zoneFeeNote');
   if(note) note.textContent = selectedDeliveryZone ? `+${Number(selectedDeliveryZone.price||0)} EGP added to total` : '';
   refreshTotalDisplay();
+}
+function onDeliveryPaymentChange(){
+  const select = document.getElementById('deliveryPaymentSelect');
+  const note = document.getElementById('cardPaymentNote');
+  if(note) note.style.display = (select && select.value === 'Card') ? 'block' : 'none';
 }
 
 document.getElementById('confirmSendOrderBtn').onclick = async () => {
@@ -1238,8 +1238,8 @@ document.getElementById('confirmSendOrderBtn').onclick = async () => {
     const address = document.getElementById('orderAddress').value.trim();
     if(!name || !phone || !address){ msg.textContent = 'Enter your name, phone number, and delivery address.'; return; }
     if(deliveryZones.length > 0 && !selectedDeliveryZone){ msg.textContent = 'Choose your delivery zone.'; return; }
-    const paymentRadio = Array.from(document.getElementsByName('deliveryPayment')).find(r => r.checked);
-    const payment = paymentRadio ? paymentRadio.value : 'InstaPay';
+    const paymentSelect = document.getElementById('deliveryPaymentSelect');
+    const payment = paymentSelect ? paymentSelect.value : 'InstaPay';
     detailsLines.push(`Name: ${name}`, `Phone: ${phone}`);
     if(selectedDeliveryZone) detailsLines.push(`Zone: ${selectedDeliveryZone.name} (+${Number(selectedDeliveryZone.price||0)} EGP)`);
     detailsLines.push(`Address: ${address}`, `Payment: ${payment}`);
@@ -1793,4 +1793,4 @@ function moveItem(id, categoryId, delta){
 }
 </script>
 </body>
-</ht
+</html>
